@@ -1,0 +1,48 @@
+default_language_version:
+  python: python3.12
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+        exclude: \.tavern\.yaml$
+      - id: check-toml
+      - id: check-added-large-files
+        args: [--maxkb=1024]
+      - id: check-merge-conflict
+      - id: detect-private-key
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.14.4
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
+  # mypy runs through uv against the project's own environment rather than in an
+  # isolated one. The mirrors-mypy hook installs only the packages you list, so it
+  # cannot see FastAPI or LightGBM and reports every route as an untyped decorator -
+  # a different verdict from `uv run mypy`. One environment, one answer.
+  - repo: local
+    hooks:
+      - id: mypy
+        name: mypy (strict, project environment)
+        entry: uv run mypy
+        language: system
+        types: [python]
+        pass_filenames: false
+        args: [src]
+
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.5.0
+    hooks:
+      - id: detect-secrets
+        args: [--baseline, .secrets.baseline]
+
+  - repo: https://github.com/hadolint/hadolint
+    rev: v2.14.0
+    hooks:
+      - id: hadolint-docker
