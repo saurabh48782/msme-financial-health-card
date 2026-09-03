@@ -23,34 +23,25 @@ def _ensure_parent(path: str | Path) -> None:
 
 
 def read_dataframe(path: str | Path, **kwargs: Any) -> pd.DataFrame:
-    """Read a CSV or parquet file by extension."""
-    suffix = str(path).lower()
+    """Read a CSV file."""
+    if not str(path).lower().endswith((".csv", ".csv.gz")):
+        raise CustomError(f"Unsupported data file extension: {path}")
     try:
-        if suffix.endswith(".parquet"):
-            parquet: pd.DataFrame = pd.read_parquet(path, **kwargs)
-            return parquet
-        if suffix.endswith((".csv", ".csv.gz")):
-            csv: pd.DataFrame = pd.read_csv(path, **kwargs)
-            return csv
+        csv: pd.DataFrame = pd.read_csv(path, **kwargs)
     except (OSError, ValueError) as error:
         raise CustomError(error) from error
-    raise CustomError(f"Unsupported data file extension: {path}")
+    return csv
 
 
 def write_dataframe(frame: pd.DataFrame, path: str | Path, **kwargs: Any) -> None:
-    """Write a DataFrame as CSV or parquet, creating parent directories."""
+    """Write a DataFrame as CSV, creating parent directories."""
+    if not str(path).lower().endswith(".csv"):
+        raise CustomError(f"Unsupported data file extension: {path}")
     _ensure_parent(path)
-    suffix = str(path).lower()
     try:
-        if suffix.endswith(".parquet"):
-            frame.to_parquet(path, index=False, **kwargs)
-            return
-        if suffix.endswith(".csv"):
-            frame.to_csv(path, index=False, **kwargs)
-            return
+        frame.to_csv(path, index=False, **kwargs)
     except (OSError, ValueError) as error:
         raise CustomError(error) from error
-    raise CustomError(f"Unsupported data file extension: {path}")
 
 
 def read_json(path: str | Path) -> Any:

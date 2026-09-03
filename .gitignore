@@ -13,17 +13,21 @@ htmlcov/
 .env
 .direnv/
 
-# Data — DVC-tracked, never git-tracked
-/data
+# Data - DVC-tracked, never git-tracked.
+# Ignore the contents, keep the DVC pointer files and the generated .gitignores.
+/data/**
+!/data/**/
+!/data/**/.gitignore
+!/data/**/*.dvc
 *.csv
-*.parquet
 
-# Artifacts
+# Artifacts and folders
 /mlruns/
 /mlartifacts/
 mlflow.db
 /model_artifact/
 /logs/
+/notes/
 .mlflow-requirements.txt
 
 # Notebooks

@@ -33,7 +33,6 @@ _NOISY_LOGGERS = (
     "numba",
     "shap",
     "py4j",
-    "alembic",
 )
 _configured = False
 
@@ -86,7 +85,7 @@ def setup_logging(level: str | None = None, *, force: bool = False) -> None:
         cache_logger_on_first_use=True,
     )
 
-    # One formatter bridges stdlib records (uvicorn, lightgbm, alembic) into the
+    # One formatter bridges stdlib records (uvicorn, xgboost, mlflow) into the
     # same processor chain, so third-party logs are shaped like ours.
     formatter = structlog.stdlib.ProcessorFormatter(
         foreign_pre_chain=_SHARED_PROCESSORS,

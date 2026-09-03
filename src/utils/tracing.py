@@ -1,6 +1,6 @@
 """Per-stage timing for the scoring pipeline.
 
-Values are never logged raw — they go through :func:`src.utils.pii.summarise`, so
+Values are never logged raw - they go through :func:`src.utils.pii.summarise`, so
 a frame becomes its shape and a payload becomes its key names.
 """
 

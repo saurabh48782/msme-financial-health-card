@@ -8,10 +8,13 @@ repos:
       - id: trailing-whitespace
       - id: end-of-file-fixer
       - id: check-yaml
-        exclude: \.tavern\.yaml$
       - id: check-toml
       - id: check-added-large-files
         args: [--maxkb=1024]
+        # The EDA notebook is committed *with* its rendered charts on purpose -
+        # a stripped notebook shows nothing on GitHub, which is the whole point
+        # of it. Everything else stays under the 1 MB guard.
+        exclude: ^notebooks/.*\.ipynb$
       - id: check-merge-conflict
       - id: detect-private-key
 
@@ -24,7 +27,7 @@ repos:
 
   # mypy runs through uv against the project's own environment rather than in an
   # isolated one. The mirrors-mypy hook installs only the packages you list, so it
-  # cannot see FastAPI or LightGBM and reports every route as an untyped decorator -
+  # cannot see FastAPI or XGBoost and reports every route as an untyped decorator -
   # a different verdict from `uv run mypy`. One environment, one answer.
   - repo: local
     hooks:
@@ -41,6 +44,10 @@ repos:
     hooks:
       - id: detect-secrets
         args: [--baseline, .secrets.baseline]
+        # A rendered notebook is mostly base64 PNG, which every entropy plugin
+        # reads as a secret and which changes on every re-execution - baselining
+        # it would mean re-baselining it forever.
+        exclude: ^notebooks/.*\.ipynb$
 
   - repo: https://github.com/hadolint/hadolint
     rev: v2.14.0
