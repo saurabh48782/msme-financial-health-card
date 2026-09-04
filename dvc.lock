@@ -9,8 +9,8 @@ stages:
       size: 13258354
     - path: src/data
       hash: md5
-      md5: 11eb0d2e8152a82d0b10b28fda29bfc9.dir
-      size: 73757
+      md5: 59579e2382a6b9ade62304957fbea6db.dir
+      size: 74006
       nfiles: 14
     params:
       params.yaml:
@@ -117,8 +117,8 @@ stages:
       size: 14256
     - path: src/scoring/pillars.py
       hash: md5
-      md5: 1af6e939cf44b51391859965727f3209
-      size: 10647
+      md5: 3c1bac42fe7e3f6c3bb0221c42aa90db
+      size: 10637
     params:
       params.yaml:
         pillars:
@@ -327,64 +327,11 @@ stages:
       nfiles: 16
     - path: src/scoring
       hash: md5
-      md5: 1d04503c5fa88f847f07d92b1cfb4f87.dir
-      size: 194212
+      md5: 07bea012aaf16209f7e9fd935817a9f8.dir
+      size: 191947
       nfiles: 16
     params:
       params.yaml:
-        anomaly:
-          rules:
-            revenue_source_divergence:
-              severity: high
-              metric: revenue_triangulation_gap
-              operator: gt
-              threshold: 0.25
-              message: GST, bank and UPI revenue disagree by more than 25%
-            gst_bank_mismatch:
-              severity: medium
-              metric: gst_bank_reconciliation_gap
-              operator: gt
-              threshold: 0.2
-              message: Declared GST sales differ materially from bank credits
-            purchases_exceed_sales:
-              severity: high
-              metric: purchases_to_sales_ratio
-              operator: gt
-              threshold: 1.0
-              message: GST purchases exceed GST sales — negative gross margin
-            payroll_disproportionate:
-              severity: medium
-              metric: payroll_to_turnover_ratio
-              operator: gt
-              threshold: 0.8
-              message: Payroll consumes over 80% of turnover
-            contraction_with_overdraft:
-              severity: high
-              metric: contraction_overdraft_signal
-              operator: gt
-              threshold: 0.0
-              message: Revenue contracting while overdraft usage is elevated
-            customer_concentration:
-              severity: medium
-              metric: Customer_Concentration_Ratio
-              operator: gt
-              threshold: 0.85
-              message: Over 85% of revenue depends on a single customer
-            negative_free_cashflow:
-              severity: critical
-              metric: credit_debit_ratio
-              operator: lt
-              threshold: 0.95
-              message: Bank debits persistently exceed credits
-            thin_cash_buffer:
-              severity: medium
-              metric: balance_days_of_outflow
-              operator: lt
-              threshold: 3.0
-              message: Cash buffer covers under 3 days of outflow
-          contraction_rule:
-            growth_below_pct: -10.0
-            overdraft_above: 0.35
         model_params:
           test_size: 0.2
           random_state: 42
@@ -622,7 +569,7 @@ stages:
     outs:
     - path: model_artifact/scoring_bundle.joblib
       hash: md5
-      md5: 895e35f77f2cd23da453eb70339fa771
+      md5: c018a334bf188564a3a9aae34a9b051a
       size: 1879330
     - path: model_artifact/training_report.json
       hash: md5
@@ -637,12 +584,12 @@ stages:
       size: 13258354
     - path: model_artifact/scoring_bundle.joblib
       hash: md5
-      md5: 895e35f77f2cd23da453eb70339fa771
+      md5: c018a334bf188564a3a9aae34a9b051a
       size: 1879330
     - path: src/scoring/scoring_orchestration.py
       hash: md5
-      md5: 0242aee6c00211d791e2918ffb1b3e4a
-      size: 15575
+      md5: 395604bb93c15e95785c8ee09ff7a290
+      size: 15545
     params:
       params.yaml:
         policy:
@@ -682,14 +629,14 @@ stages:
     outs:
     - path: data/processed/portfolio_scores.csv
       hash: md5
-      md5: b1311f127d6d2c969df0a0912b1f926c
+      md5: 9d526e5407b645041bd39112bd8c5caa
       size: 21543667
   evaluate:
     cmd: python -m src.evaluation report
     deps:
     - path: model_artifact/scoring_bundle.joblib
       hash: md5
-      md5: 895e35f77f2cd23da453eb70339fa771
+      md5: c018a334bf188564a3a9aae34a9b051a
       size: 1879330
     - path: src/evaluation
       hash: md5
@@ -712,9 +659,9 @@ stages:
     outs:
     - path: data/eval/reports/latest.json
       hash: md5
-      md5: 69582384b6aa1f5d61a87cce3989d5fb
+      md5: d7b94c0b977612d8a50cd64f751f1318
       size: 10961
     - path: data/eval/reports/latest.md
       hash: md5
-      md5: faf38a236247d1bf60d85847c0788c79
+      md5: 88122923711aef561c9f9bb22e4c4350
       size: 2664

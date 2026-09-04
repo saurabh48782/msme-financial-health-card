@@ -37,7 +37,6 @@ _REQUIRED_SECTIONS = (
     "grades",
     "model_params",
     "policy",
-    "anomaly",
     "explainability",
     "mlflow_config",
     "api",

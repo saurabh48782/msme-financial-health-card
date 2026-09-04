@@ -1,5 +1,6 @@
 # MSME Financial Health Card - single source of truth for every tunable.
-# Nothing in src/ may hard-code a weight, threshold, path or band edge.
+# Nothing in src/ may hard-code a weight, threshold, path or band edge. Domain
+# invariants are not tunables and do live in code: see src/scoring/anomaly.py.
 # ${VAR} placeholders are resolved from the environment at load time:
 #   ${VAR}            -> RuntimeError if unset or empty
 #   ${VAR:-}          -> "" when unset
@@ -352,64 +353,6 @@ policy:
     medium: 4.5
     high: 7.5
   base_rate_pct: 9.0
-
-# ---------------------------------------------------------------------------
-# Layer C — anomaly detection.
-# ---------------------------------------------------------------------------
-anomaly:
-  # Deterministic consistency rules. Each emits a typed flag when triggered.
-  rules:
-    revenue_source_divergence:
-      severity: high
-      metric: revenue_triangulation_gap
-      operator: gt
-      threshold: 0.25
-      message: "GST, bank and UPI revenue disagree by more than 25%"
-    gst_bank_mismatch:
-      severity: medium
-      metric: gst_bank_reconciliation_gap
-      operator: gt
-      threshold: 0.20
-      message: "Declared GST sales differ materially from bank credits"
-    purchases_exceed_sales:
-      severity: high
-      metric: purchases_to_sales_ratio
-      operator: gt
-      threshold: 1.0
-      message: "GST purchases exceed GST sales — negative gross margin"
-    payroll_disproportionate:
-      severity: medium
-      metric: payroll_to_turnover_ratio
-      operator: gt
-      threshold: 0.80
-      message: "Payroll consumes over 80% of turnover"
-    contraction_with_overdraft:
-      severity: high
-      metric: contraction_overdraft_signal
-      operator: gt
-      threshold: 0.0
-      message: "Revenue contracting while overdraft usage is elevated"
-    customer_concentration:
-      severity: medium
-      metric: Customer_Concentration_Ratio
-      operator: gt
-      threshold: 0.85
-      message: "Over 85% of revenue depends on a single customer"
-    negative_free_cashflow:
-      severity: critical
-      metric: credit_debit_ratio
-      operator: lt
-      threshold: 0.95
-      message: "Bank debits persistently exceed credits"
-    thin_cash_buffer:
-      severity: medium
-      metric: balance_days_of_outflow
-      operator: lt
-      threshold: 3.0
-      message: "Cash buffer covers under 3 days of outflow"
-  contraction_rule:
-    growth_below_pct: -10.0
-    overdraft_above: 0.35
 
 # ---------------------------------------------------------------------------
 # Layer E — explainability.

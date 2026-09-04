@@ -40,6 +40,8 @@ DERIVED_COLUMNS: tuple[str, ...] = (
 )
 
 _DSCR_CAP = 25.0  # a firm with no debt has infinite coverage; cap for a finite feature
+_CONTRACTION_GROWTH_PCT = -10.0  # revenue shrinking, not merely flat
+_ELEVATED_OVERDRAFT_RATIO = 0.35  # the overdraft is being lived on, not dipped into
 
 
 def _safe_divide(numerator: pd.Series, denominator: pd.Series, floor: float) -> pd.Series:
@@ -126,11 +128,12 @@ def add_derived_features(frame: pd.DataFrame, config: dict[str, Any] | None = No
         out["Annual_Turnover_INR"], out["Employee_Count"], 1.0
     )
 
-    # composite stress signal
-    rule = cfg["anomaly"]["contraction_rule"]
+    # Composite stress signal: shrinking revenue funded by the overdraft. Either
+    # alone is ordinary; together they are the classic pre-default pattern, which
+    # is why the anomaly layer flags the conjunction and not the parts.
     out["contraction_overdraft_signal"] = (
-        (out["Revenue_Growth_Rate_Pct"] < float(rule["growth_below_pct"]))
-        & (out["Overdraft_Usage_Ratio"] > float(rule["overdraft_above"]))
+        (out["Revenue_Growth_Rate_Pct"] < _CONTRACTION_GROWTH_PCT)
+        & (out["Overdraft_Usage_Ratio"] > _ELEVATED_OVERDRAFT_RATIO)
     ).astype("float64")
 
     out = out.replace([np.inf, -np.inf], np.nan)
