@@ -1,0 +1,466 @@
+# MSME Financial Health Card - single source of truth for every tunable.
+# Nothing in src/ may hard-code a weight, threshold, path or band edge.
+# ${VAR} placeholders are resolved from the environment at load time:
+#   ${VAR}            -> RuntimeError if unset or empty
+#   ${VAR:-}          -> "" when unset
+#   ${VAR:-default}   -> default when unset or empty
+
+project_name: "MSME Financial Health Card"
+policy_version: "policy-1.0.0"
+rubric_version: "rubric-1.0.0"
+
+# Paths (relative to repo root)
+data_paths:
+  raw_csv: "data/raw/msme_synthetic_50k.csv"
+  processed_features: "data/processed/features.csv"
+  portfolio_scores: "data/processed/portfolio_scores.csv"
+  model_artifact_dir: "model_artifact"
+  eval_reports_dir: "data/eval/reports"
+
+# ---------------------------------------------------------------------------
+# Dataset schema. The feature allowlist is the leakage firewall: only these
+# columns may ever reach a model or a rubric. Everything in `label_columns`
+# is supervision-only and is dropped by data_loader before feature building.
+# ---------------------------------------------------------------------------
+schema:
+  id_column: "MSME_ID"
+  categorical_columns:
+    - Customer_Segment
+    - Business_Type
+    - Industry
+    - Location_Category
+    - GST_Return_Frequency
+    - Has_Existing_Loan
+  # Columns whose NULLs are structural, not missing-at-random. Never imputed.
+  structural_null_columns:
+    EMI_On_Time_Rate_Pct: "Has_Existing_Loan == 'No'"
+  feature_columns:
+    - Customer_Segment
+    - Business_Type
+    - Industry
+    - Location_Category
+    - Years_in_Operation
+    - Employee_Count
+    - Annual_Turnover_INR
+    - Monthly_GST_Sales_INR
+    - Monthly_GST_Purchases_INR
+    - GST_Filing_Timeliness_Pct
+    - GST_Return_Frequency
+    - Monthly_UPI_Inflow_INR
+    - Monthly_UPI_Outflow_INR
+    - UPI_Avg_Ticket_Size_INR
+    - UPI_Daily_Txn_Count
+    - Transaction_Volatility_Index
+    - Monthly_Bank_Credits_INR
+    - Monthly_Bank_Debits_INR
+    - Average_Bank_Balance_INR
+    - Cashflow_Stability_Index
+    - Has_Existing_Loan
+    - Monthly_Loan_EMI_INR
+    - EMI_On_Time_Rate_Pct
+    - Overdraft_Usage_Ratio
+    - Monthly_Payroll_INR
+    - Salary_Consistency_Pct
+    - Employee_Attrition_Rate_Pct
+    - Avg_Invoice_Payment_Delay_Days
+    - Customer_Concentration_Ratio
+    - Vendor_Payment_Timeliness_Pct
+    - Seasonality_Index
+    - Revenue_Growth_Rate_Pct
+    - Credit_History_Months
+  label_columns:
+    - Business_Stability_Score
+    - Cashflow_Score
+    - Revenue_Consistency_Score
+    - Payment_Behaviour_Score
+    - Business_Growth_Score
+    - Compliance_Score
+    - Financial_Health_Score
+    - Probability_of_Default
+    - Credit_Risk_Category
+    - Credit_Eligible
+    - Recommended_Credit_Limit_INR
+  # dataset label column -> our pillar key, used only by the calibration harness
+  pillar_label_map:
+    business_stability: Business_Stability_Score
+    cashflow: Cashflow_Score
+    revenue_consistency: Revenue_Consistency_Score
+    payment_behaviour: Payment_Behaviour_Score
+    business_growth: Business_Growth_Score
+    compliance: Compliance_Score
+
+# Preprocessing
+preprocessing:
+  winsorise:
+    # Clip at percentiles.
+    lower_quantile: 0.01
+    upper_quantile: 0.99
+    columns:
+      - Annual_Turnover_INR
+      - Monthly_GST_Sales_INR
+      - Monthly_GST_Purchases_INR
+      - Monthly_UPI_Inflow_INR
+      - Monthly_UPI_Outflow_INR
+      - UPI_Avg_Ticket_Size_INR
+      - Monthly_Bank_Credits_INR
+      - Monthly_Bank_Debits_INR
+      - Average_Bank_Balance_INR
+      - Monthly_Payroll_INR
+      - Monthly_Loan_EMI_INR
+  # Guards against divide-by-zero in derived ratios.
+  min_denominator: 1.0
+
+# Ordinal encodings for categorical drivers, mapped onto 0-1.
+categorical_standing:
+  business_type_standing:
+    Proprietorship: 0.40
+    Partnership: 0.60
+    LLP: 0.80
+    "Private Limited": 1.00
+  location_standing:
+    Rural: 0.30
+    "Tier 3": 0.45
+    "Tier 2": 0.65
+    "Tier 1": 0.85
+    Metro: 1.00
+  gst_return_frequency_standing:
+    Quarterly: 0.50
+    Monthly: 1.00
+
+# ---------------------------------------------------------------------------
+# Layer A - pillar rubrics.
+#
+# A pillar scores on a fitted `band`: the score when every driver sits at its
+# `worst` anchor, and the score when every driver sits at its `best`. Each driver
+# is a clamped linear ramp from `worst` (0) to `best` (1) - put `worst` above
+# `best` for a lower-is-better driver. A firm's place in the band is the weighted
+# mean of its drivers:
+#
+#     score = lo + (hi - lo) * sum(weight_i * ramp_i)
+#
+# so the decomposition is exact by construction, the score can never leave the
+# band, and every contribution is a real number of points. Driver weights must
+# sum to 1.0 and each band must sit inside 0-100.
+#
+# Bands and weights are fitted by src.scoring.pillar_calibration against the
+# dataset's own pillar columns. The fit report - adjusted R^2, MAE, rows - is an
+# output, not a tunable, and lives in data/artifacts/pillar_calibration.json.
+#
+# `label` overrides the driver name in narration; it is omitted wherever the name
+# already reads as English.
+# ---------------------------------------------------------------------------
+pillars:
+  # Weights of the six pillars in the Financial Health Score. Derived by OLS of
+  # the dataset's Financial_Health_Score on its six pillar columns (R^2 = 0.831)
+  # then renormalised to sum to exactly 1.0.
+  fhs_weights:
+    compliance: 0.2720
+    cashflow: 0.2378
+    payment_behaviour: 0.2250
+    revenue_consistency: 0.1027
+    business_stability: 0.0851
+    business_growth: 0.0774
+
+  business_stability:
+    label: "Business Stability"
+    band: [50.6202, 90.7935]
+    drivers:
+      years_in_operation:     {source: Years_in_Operation, weight: 0.6625, worst: 0.5, best: 12.0}
+      employee_attrition:     {source: Employee_Attrition_Rate_Pct, weight: 0.2538, worst: 33.0, best: 1.0}
+      employee_count:         {source: Employee_Count, weight: 0.0279, worst: 1.0, best: 15.0, label: "team size"}
+      business_type_standing: {source: business_type_standing, weight: 0.0279, worst: 0.0, best: 1.0, label: "constitution of the business"}
+      location_standing:      {source: location_standing, weight: 0.0279, worst: 0.0, best: 1.0, label: "operating location tier"}
+
+  cashflow:
+    label: "Cash Flow"
+    band: [47.5784, 91.2345]
+    drivers:
+      cashflow_stability:      {source: Cashflow_Stability_Index, weight: 0.5435, worst: 0.45, best: 0.88, label: "month-to-month cashflow stability"}
+      overdraft_usage:         {source: Overdraft_Usage_Ratio, weight: 0.2366, worst: 0.46, best: 0.05}
+      credit_debit_ratio:      {source: credit_debit_ratio, weight: 0.1627, worst: 1.0, best: 1.6, label: "bank credits vs debits"}
+      balance_days_of_outflow: {source: balance_days_of_outflow, weight: 0.0286, worst: 3.0, best: 45.0, label: "cash buffer in days of outflow"}
+      dscr_proxy:              {source: dscr_proxy, weight: 0.0286, worst: 1.0, best: 6.5, label: "debt service coverage"}
+
+  revenue_consistency:
+    label: "Revenue Consistency"
+    band: [37.3701, 88.1848]
+    drivers:
+      transaction_volatility:    {source: Transaction_Volatility_Index, weight: 0.5729, worst: 0.55, best: 0.08}
+      seasonality:               {source: Seasonality_Index, weight: 0.3703, worst: 0.80, best: 0.05, label: "revenue seasonality"}
+      upi_daily_txn_count:       {source: UPI_Daily_Txn_Count, weight: 0.0284, worst: 1.0, best: 25.0, label: "daily digital transaction count"}
+      revenue_triangulation_gap: {source: revenue_triangulation_gap, weight: 0.0284, worst: 0.22, best: 0.02, label: "agreement between GST, bank and UPI revenue"}
+
+  payment_behaviour:
+    label: "Payment Behaviour"
+    band: [61.5215, 100.0]
+    drivers:
+      vendor_payment_timeliness: {source: Vendor_Payment_Timeliness_Pct, weight: 0.5302, worst: 62.0, best: 100.0, label: "supplier payment punctuality"}
+      invoice_payment_delay:     {source: Avg_Invoice_Payment_Delay_Days, weight: 0.3184, worst: 45.0, best: 0.5}
+      # Structurally NULL for the 65% of firms with no existing loan. When absent
+      # the weight is redistributed pro-rata across the remaining drivers and a
+      # thin_file flag is raised - never imputed.
+      emi_on_time_rate:          {source: EMI_On_Time_Rate_Pct, weight: 0.1223, worst: 76.0, best: 100.0, label: "loan EMI punctuality", optional: true}
+      salary_consistency:        {source: Salary_Consistency_Pct, weight: 0.0291, worst: 68.0, best: 100.0}
+
+  business_growth:
+    label: "Business Growth"
+    band: [14.6884, 68.1708]
+    drivers:
+      revenue_growth_rate:      {source: Revenue_Growth_Rate_Pct, weight: 0.9430, worst: -25.0, best: 45.0}
+      turnover_per_employee:    {source: turnover_per_employee, weight: 0.0285, worst: 500000.0, best: 4700000.0}
+      gst_turnover_realisation: {source: gst_turnover_realisation, weight: 0.0285, worst: 0.85, best: 1.15, label: "GST sales run-rate vs declared turnover"}
+
+  compliance:
+    label: "Compliance"
+    band: [63.9695, 100.0]
+    drivers:
+      gst_filing_timeliness:   {source: GST_Filing_Timeliness_Pct, weight: 0.7219, worst: 65.0, best: 100.0, label: "GST filing timeliness"}
+      payroll_regularity:      {source: Salary_Consistency_Pct, weight: 0.2215, worst: 68.0, best: 100.0, label: "EPFO payroll regularity"}
+      gst_return_frequency:    {source: gst_return_frequency_standing, weight: 0.0283, worst: 0.0, best: 1.0, label: "GST return filing frequency"}
+      gst_bank_reconciliation: {source: gst_bank_reconciliation_gap, weight: 0.0283, worst: 0.15, best: 0.01, label: "GST sales vs bank credit reconciliation"}
+
+
+# Financial Health Score grade bands. `min` is inclusive, evaluated top-down.
+#
+# The edges are set where they actually separate risk, not on round numbers.
+# Observed FHS at the PD band boundaries is 77.2 (PD 0.06) and 70.9 (PD 0.15), so
+# the A/B edge tracks the Low/Medium cut and the C/D edge tracks Medium/High.
+# A+ is the top ~4% rather than a PD cut: it is a marketing band, not a risk one.
+grades:
+  - {grade: "A+", label: "Excellent", min: 83.0}
+  - {grade: "A", label: "Strong", min: 77.0}
+  - {grade: "B", label: "Good", min: 71.0}
+  - {grade: "C", label: "Fair", min: 65.0}
+  - {grade: "D", label: "Weak", min: 0.0}
+
+# ---------------------------------------------------------------------------
+# Layer B — ML risk models (XGBoost).
+#
+# Both heads grow leaf-wise (`grow_policy: lossguide` with `max_depth: 0`, so
+# `max_leaves` is the only capacity bound) because that is what the leaf counts
+# below were tuned against and it measured better here than depthwise. Native
+# categorical splits need `tree_method: hist` and `enable_categorical: true`
+# together — without the latter XGBoost rejects a pandas `category` column
+# rather than one-hot encoding it silently.
+#
+# `importance_type: total_gain` makes `feature_importances_` the summed gain per
+# feature. XGBoost defaults to mean gain, which ranks a feature used in one
+# lucky split above one that carries the model.
+# ---------------------------------------------------------------------------
+model_params:
+  test_size: 0.2
+  random_state: 42
+  stratify_column: Customer_Segment
+  pd_regressor:
+    objective: reg:squarederror
+    n_estimators: 600
+    learning_rate: 0.05
+    max_leaves: 63
+    max_depth: 0
+    grow_policy: lossguide
+    # Squared error has a unit hessian, so this is a literal minimum child size.
+    min_child_weight: 10
+    subsample: 0.9
+    colsample_bytree: 0.9
+    reg_lambda: 1.0
+    tree_method: hist
+    enable_categorical: true
+    importance_type: total_gain
+    n_jobs: -1
+    verbosity: 0
+  eligibility_classifier:
+    objective: binary:logistic
+    n_estimators: 500
+    learning_rate: 0.05
+    max_leaves: 31
+    max_depth: 0
+    grow_policy: lossguide
+    # Logloss hessians are p(1-p) <= 0.25, so a child holds >= 5/0.25 = 20 rows
+    # at best and many more in the confident regions. Not a row count.
+    min_child_weight: 5
+    subsample: 0.9
+    colsample_bytree: 0.9
+    reg_lambda: 1.0
+    tree_method: hist
+    enable_categorical: true
+    importance_type: total_gain
+    n_jobs: -1
+    verbosity: 0
+  # Used only when no trained model is loaded, so the dashboard and policy engine
+  # work end to end on a fresh checkout. PD is strongly monotone in our FHS
+  # (r = -0.856); an exponential fit gives R^2 0.827, MAE 0.027 and 78% risk-band
+  # agreement — honest as a stand-in, and a card scored this way records
+  # model_version = null so it is never mistaken for a model prediction.
+  pd_fallback:
+    form: exponential         # pd = exp(slope * fhs + intercept), clipped
+    slope: -0.128489
+    intercept: 7.126603
+    pd_min: 0.002
+    pd_max: 0.75
+  fairness_slice_columns: [Customer_Segment, Location_Category, Industry, Business_Type]
+
+# ---------------------------------------------------------------------------
+# Layer D — policy engine. Versioned by `policy_version` above; every persisted
+# card records the version that produced it.
+#
+# Reverse-engineered from the dataset:
+#   risk band  : PD <= 0.06 Low, <= 0.15 Medium, else High
+#   eligibility: band != High reproduces 99.98% of Credit_Eligible labels
+#                (9 of 37,174 disagreements, all at the PD == 0.150 tie)
+#   limit      : turnover * band_multiple * Cashflow_Score/100, rounded to 1,000
+#                (R^2 = 0.76 against Recommended_Credit_Limit_INR)
+# The knock-out rules are our own underwriting addition, not in the labels.
+# Their thresholds sit at the observed floor of the eligible population so the
+# engine agrees with ground truth out of the box while remaining a real,
+# tunable, auditable gate for a credit policy team.
+# ---------------------------------------------------------------------------
+policy:
+  pd_bands:
+    low_max: 0.06
+    medium_max: 0.15
+  knockouts:
+    enabled: true
+    min_years_in_operation: 0.2
+    min_annual_turnover_inr: 300000.0
+    min_gst_filing_timeliness_pct: 50.0
+    max_overdraft_usage_ratio: 0.60
+    block_on_anomaly_severity: ["critical"]
+  limits:
+    band_multiple:
+      low: 0.2097
+      medium: 0.1189
+      high: 0.0
+    cashflow_scaling: true       # multiply by Cashflow_Score / 100
+    rounding_inr: 1000
+    # A Rs 50,000 floor declined 481 micro-enterprises (turnover ~Rs 3-15 lakh) that
+    # the dataset approves; Rs 20,000 is a realistic micro working-capital ticket and
+    # brings eligibility agreement with the labels to 99.98%.
+    min_limit_inr: 20000.0
+    max_limit_inr: 50000000.0
+    # Working-capital limit may not exceed this many months of free cashflow
+    # times the tenor, i.e. the firm must be able to service it.
+    dscr_headroom:
+      enabled: true
+      min_dscr: 1.25
+      assumed_annual_rate_pct: 14.0
+  tenor_months:
+    low: 36
+    medium: 24
+    high: 12
+  pricing_spread_pct:
+    low: 2.5
+    medium: 4.5
+    high: 7.5
+  base_rate_pct: 9.0
+
+# ---------------------------------------------------------------------------
+# Layer C — anomaly detection.
+# ---------------------------------------------------------------------------
+anomaly:
+  # Deterministic consistency rules. Each emits a typed flag when triggered.
+  rules:
+    revenue_source_divergence:
+      severity: high
+      metric: revenue_triangulation_gap
+      operator: gt
+      threshold: 0.25
+      message: "GST, bank and UPI revenue disagree by more than 25%"
+    gst_bank_mismatch:
+      severity: medium
+      metric: gst_bank_reconciliation_gap
+      operator: gt
+      threshold: 0.20
+      message: "Declared GST sales differ materially from bank credits"
+    purchases_exceed_sales:
+      severity: high
+      metric: purchases_to_sales_ratio
+      operator: gt
+      threshold: 1.0
+      message: "GST purchases exceed GST sales — negative gross margin"
+    payroll_disproportionate:
+      severity: medium
+      metric: payroll_to_turnover_ratio
+      operator: gt
+      threshold: 0.80
+      message: "Payroll consumes over 80% of turnover"
+    contraction_with_overdraft:
+      severity: high
+      metric: contraction_overdraft_signal
+      operator: gt
+      threshold: 0.0
+      message: "Revenue contracting while overdraft usage is elevated"
+    customer_concentration:
+      severity: medium
+      metric: Customer_Concentration_Ratio
+      operator: gt
+      threshold: 0.85
+      message: "Over 85% of revenue depends on a single customer"
+    negative_free_cashflow:
+      severity: critical
+      metric: credit_debit_ratio
+      operator: lt
+      threshold: 0.95
+      message: "Bank debits persistently exceed credits"
+    thin_cash_buffer:
+      severity: medium
+      metric: balance_days_of_outflow
+      operator: lt
+      threshold: 3.0
+      message: "Cash buffer covers under 3 days of outflow"
+  contraction_rule:
+    growth_below_pct: -10.0
+    overdraft_above: 0.35
+
+# ---------------------------------------------------------------------------
+# Layer E — explainability.
+# ---------------------------------------------------------------------------
+explainability:
+  top_n_drivers: 6
+  shap_background_samples: 200
+  shap_max_display: 15
+  min_abs_contribution: 0.25   # pillar points below which a driver is not narrated
+
+# ---------------------------------------------------------------------------
+# MLflow
+# ---------------------------------------------------------------------------
+mlflow_config:
+  # MLflow 3 put the filesystem store into maintenance mode, so SQLite is the
+  # local default: zero setup, and the same code path as a remote tracking server.
+  # Tracking only — runs, metrics and artifacts. The staging/production alias
+  # lifecycle is deliberately absent; see docs/BEYOND_SCOPE.md.
+  tracking_uri: "${MLFLOW_TRACKING_URI:-sqlite:///mlflow.db}"
+  experiment_name: "MSME Financial Health Card"
+  registered_model_name: "MSME_HealthCard_Scorer"
+  requirements_file: ".mlflow-requirements.txt"
+
+# ---------------------------------------------------------------------------
+# API
+# ---------------------------------------------------------------------------
+api:
+  title: "MSME Financial Health Card API"
+  version: "0.1.0"
+  root_path: "${API_ROOT_PATH:-}"
+  max_batch_size: 500
+  request_timeout_seconds: 30.0
+  api_key: "${HEALTHCARD_API_KEY:-}"
+  cors_allow_origins: "${CORS_ALLOW_ORIGINS:-}"
+  page_size: 25
+  simulate_max_overrides: 12
+
+# ---------------------------------------------------------------------------
+# Offline evaluation gate (pytest -m eval)
+# ---------------------------------------------------------------------------
+evaluation:
+  thresholds:
+    pd_mae_max: 0.025
+    pd_brier_max: 0.02
+    eligibility_auc_min: 0.95
+    # Adjusted R², not plain R²: a rubric must not clear the gate by adding
+    # drivers. At 50k rows against <=6 drivers the penalty is ~1e-4, so the
+    # 0.75 floor carries over from the unadjusted gate unchanged.
+    pillar_adj_r2_min: 0.75
+    fhs_mae_max: 2.5
+    limit_mape_max: 0.15
+    fairness_max_deviation_points: 3.0
+  calibration_bins: 10
+  sample_rows: 0                   # 0 = use the whole dataset

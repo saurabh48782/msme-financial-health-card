@@ -113,12 +113,12 @@ stages:
       size: 25689259
     - path: src/scoring/pillar_calibration.py
       hash: md5
-      md5: 2aa3ed2cd0d91cfbdba0b0a4dfda21b3
-      size: 13039
+      md5: 798528c90aef7758ac9c14e9c23aab56
+      size: 14256
     - path: src/scoring/pillars.py
       hash: md5
-      md5: 311dc2268d446c0ecda76b38bc4574e8
-      size: 11851
+      md5: 1af6e939cf44b51391859965727f3209
+      size: 10647
     params:
       params.yaml:
         pillars:
@@ -131,239 +131,188 @@ stages:
             business_growth: 0.0774
           business_stability:
             label: Business Stability
-            calibration:
-              slope: 0.401733
-              intercept: 50.6202
-              adj_r2: 0.8755
-              r2: 0.8755
-              mae: 2.2156
+            band:
+            - 50.6202
+            - 90.7935
             drivers:
               years_in_operation:
                 source: Years_in_Operation
                 weight: 0.6625
-                low: 0.5
-                high: 12.0
-                direction: higher_is_better
-                reason: years in operation
-              employee_count:
-                source: Employee_Count
-                weight: 0.0279
-                low: 1.0
-                high: 15.0
-                direction: higher_is_better
-                reason: team size
+                worst: 0.5
+                best: 12.0
               employee_attrition:
                 source: Employee_Attrition_Rate_Pct
                 weight: 0.2538
-                low: 1.0
-                high: 33.0
-                direction: lower_is_better
-                reason: employee attrition
+                worst: 33.0
+                best: 1.0
+              employee_count:
+                source: Employee_Count
+                weight: 0.0279
+                worst: 1.0
+                best: 15.0
+                label: team size
               business_type_standing:
                 source: business_type_standing
                 weight: 0.0279
-                low: 0.0
-                high: 1.0
-                direction: higher_is_better
-                reason: constitution of the business
+                worst: 0.0
+                best: 1.0
+                label: constitution of the business
               location_standing:
                 source: location_standing
                 weight: 0.0279
-                low: 0.0
-                high: 1.0
-                direction: higher_is_better
-                reason: operating location tier
+                worst: 0.0
+                best: 1.0
+                label: operating location tier
           cashflow:
             label: Cash Flow
-            calibration:
-              slope: 0.436561
-              intercept: 47.578367
-              adj_r2: 0.9903
-              r2: 0.9903
-              mae: 0.5057
+            band:
+            - 47.5784
+            - 91.2345
             drivers:
-              credit_debit_ratio:
-                source: credit_debit_ratio
-                weight: 0.1627
-                low: 1.0
-                high: 1.6
-                direction: higher_is_better
-                reason: bank credits vs debits
-              balance_days_of_outflow:
-                source: balance_days_of_outflow
-                weight: 0.0286
-                low: 3.0
-                high: 45.0
-                direction: higher_is_better
-                reason: cash buffer in days of outflow
               cashflow_stability:
                 source: Cashflow_Stability_Index
                 weight: 0.5435
-                low: 0.45
-                high: 0.88
-                direction: higher_is_better
-                reason: month-to-month cashflow stability
+                worst: 0.45
+                best: 0.88
+                label: month-to-month cashflow stability
               overdraft_usage:
                 source: Overdraft_Usage_Ratio
                 weight: 0.2366
-                low: 0.05
-                high: 0.46
-                direction: lower_is_better
-                reason: overdraft utilisation
+                worst: 0.46
+                best: 0.05
+              credit_debit_ratio:
+                source: credit_debit_ratio
+                weight: 0.1627
+                worst: 1.0
+                best: 1.6
+                label: bank credits vs debits
+              balance_days_of_outflow:
+                source: balance_days_of_outflow
+                weight: 0.0286
+                worst: 3.0
+                best: 45.0
+                label: cash buffer in days of outflow
               dscr_proxy:
                 source: dscr_proxy
                 weight: 0.0286
-                low: 1.0
-                high: 6.5
-                direction: higher_is_better
-                reason: debt service coverage
+                worst: 1.0
+                best: 6.5
+                label: debt service coverage
           revenue_consistency:
             label: Revenue Consistency
-            calibration:
-              slope: 0.508147
-              intercept: 37.370099
-              adj_r2: 0.8986
-              r2: 0.8986
-              mae: 2.035
+            band:
+            - 37.3701
+            - 88.1848
             drivers:
               transaction_volatility:
                 source: Transaction_Volatility_Index
                 weight: 0.5729
-                low: 0.08
-                high: 0.55
-                direction: lower_is_better
-                reason: transaction volatility
+                worst: 0.55
+                best: 0.08
               seasonality:
                 source: Seasonality_Index
                 weight: 0.3703
-                low: 0.05
-                high: 0.8
-                direction: lower_is_better
-                reason: revenue seasonality
+                worst: 0.8
+                best: 0.05
+                label: revenue seasonality
               upi_daily_txn_count:
                 source: UPI_Daily_Txn_Count
                 weight: 0.0284
-                low: 1.0
-                high: 25.0
-                direction: higher_is_better
-                reason: daily digital transaction count
+                worst: 1.0
+                best: 25.0
+                label: daily digital transaction count
               revenue_triangulation_gap:
                 source: revenue_triangulation_gap
                 weight: 0.0284
-                low: 0.02
-                high: 0.22
-                direction: lower_is_better
-                reason: agreement between GST, bank and UPI revenue
+                worst: 0.22
+                best: 0.02
+                label: agreement between GST, bank and UPI revenue
           payment_behaviour:
             label: Payment Behaviour
-            calibration:
-              slope: 0.385693
-              intercept: 61.521531
-              adj_r2: 0.9971
-              r2: 0.9971
-              mae: 0.1602
+            band:
+            - 61.5215
+            - 100.0
             drivers:
-              emi_on_time_rate:
-                source: EMI_On_Time_Rate_Pct
-                weight: 0.1223
-                low: 76.0
-                high: 100.0
-                direction: higher_is_better
-                reason: loan EMI punctuality
-                optional: true
               vendor_payment_timeliness:
                 source: Vendor_Payment_Timeliness_Pct
                 weight: 0.5302
-                low: 62.0
-                high: 100.0
-                direction: higher_is_better
-                reason: supplier payment punctuality
+                worst: 62.0
+                best: 100.0
+                label: supplier payment punctuality
               invoice_payment_delay:
                 source: Avg_Invoice_Payment_Delay_Days
                 weight: 0.3184
-                low: 0.5
-                high: 45.0
-                direction: lower_is_better
-                reason: average invoice payment delay
+                worst: 45.0
+                best: 0.5
+              emi_on_time_rate:
+                source: EMI_On_Time_Rate_Pct
+                weight: 0.1223
+                worst: 76.0
+                best: 100.0
+                label: loan EMI punctuality
+                optional: true
               salary_consistency:
                 source: Salary_Consistency_Pct
                 weight: 0.0291
-                low: 68.0
-                high: 100.0
-                direction: higher_is_better
-                reason: payroll consistency
+                worst: 68.0
+                best: 100.0
           business_growth:
             label: Business Growth
-            calibration:
-              slope: 0.534824
-              intercept: 14.688376
-              adj_r2: 0.9423
-              r2: 0.9423
-              mae: 2.274
+            band:
+            - 14.6884
+            - 68.1708
             drivers:
               revenue_growth_rate:
                 source: Revenue_Growth_Rate_Pct
                 weight: 0.943
-                low: -25.0
-                high: 45.0
-                direction: higher_is_better
-                reason: revenue growth rate
+                worst: -25.0
+                best: 45.0
               turnover_per_employee:
                 source: turnover_per_employee
                 weight: 0.0285
-                low: 500000.0
-                high: 4700000.0
-                direction: higher_is_better
-                reason: turnover per employee
+                worst: 500000.0
+                best: 4700000.0
               gst_turnover_realisation:
                 source: gst_turnover_realisation
                 weight: 0.0285
-                low: 0.85
-                high: 1.15
-                direction: higher_is_better
-                reason: GST sales run-rate vs declared turnover
+                worst: 0.85
+                best: 1.15
+                label: GST sales run-rate vs declared turnover
           compliance:
             label: Compliance
-            calibration:
-              slope: 0.365466
-              intercept: 63.969502
-              adj_r2: 0.9959
-              r2: 0.9959
-              mae: 0.307
+            band:
+            - 63.9695
+            - 100.0
             drivers:
               gst_filing_timeliness:
                 source: GST_Filing_Timeliness_Pct
                 weight: 0.7219
-                low: 65.0
-                high: 100.0
-                direction: higher_is_better
-                reason: GST filing timeliness
-              gst_return_frequency:
-                source: gst_return_frequency_standing
-                weight: 0.0283
-                low: 0.0
-                high: 1.0
-                direction: higher_is_better
-                reason: GST return filing frequency
+                worst: 65.0
+                best: 100.0
+                label: GST filing timeliness
               payroll_regularity:
                 source: Salary_Consistency_Pct
                 weight: 0.2215
-                low: 68.0
-                high: 100.0
-                direction: higher_is_better
-                reason: EPFO payroll regularity
+                worst: 68.0
+                best: 100.0
+                label: EPFO payroll regularity
+              gst_return_frequency:
+                source: gst_return_frequency_standing
+                weight: 0.0283
+                worst: 0.0
+                best: 1.0
+                label: GST return filing frequency
               gst_bank_reconciliation:
                 source: gst_bank_reconciliation_gap
                 weight: 0.0283
-                low: 0.01
-                high: 0.15
-                direction: lower_is_better
-                reason: GST sales vs bank credit reconciliation
+                worst: 0.15
+                best: 0.01
+                label: GST sales vs bank credit reconciliation
     outs:
     - path: data/artifacts/pillar_calibration.json
       hash: md5
-      md5: 4bdfc55926be4b708fce82e03bec10a3
-      size: 5552
+      md5: 769a08cdd25a400d34d11953f08b6a55
+      size: 4712
   train:
     cmd: python -m src.model.model_orchestration
     deps:
@@ -373,13 +322,13 @@ stages:
       size: 25689259
     - path: src/model
       hash: md5
-      md5: 859b1f4ae734d91a81ad4f93aeb0138c.dir
-      size: 140374
+      md5: f8af3d3c0a287b3610ca4e9a6d6c74ce.dir
+      size: 141677
       nfiles: 16
     - path: src/scoring
       hash: md5
-      md5: 46c3dc23f7a036a3e7692745d90ab920.dir
-      size: 194650
+      md5: 1d04503c5fa88f847f07d92b1cfb4f87.dir
+      size: 194212
       nfiles: 16
     params:
       params.yaml:
@@ -474,8 +423,8 @@ stages:
             verbosity: 0
           pd_fallback:
             form: exponential
-            slope: -0.128442
-            intercept: 7.138084
+            slope: -0.128489
+            intercept: 7.126603
             pd_min: 0.002
             pd_max: 0.75
           fairness_slice_columns:
@@ -493,243 +442,192 @@ stages:
             business_growth: 0.0774
           business_stability:
             label: Business Stability
-            calibration:
-              slope: 0.401733
-              intercept: 50.6202
-              adj_r2: 0.8755
-              r2: 0.8755
-              mae: 2.2156
+            band:
+            - 50.6202
+            - 90.7935
             drivers:
               years_in_operation:
                 source: Years_in_Operation
                 weight: 0.6625
-                low: 0.5
-                high: 12.0
-                direction: higher_is_better
-                reason: years in operation
-              employee_count:
-                source: Employee_Count
-                weight: 0.0279
-                low: 1.0
-                high: 15.0
-                direction: higher_is_better
-                reason: team size
+                worst: 0.5
+                best: 12.0
               employee_attrition:
                 source: Employee_Attrition_Rate_Pct
                 weight: 0.2538
-                low: 1.0
-                high: 33.0
-                direction: lower_is_better
-                reason: employee attrition
+                worst: 33.0
+                best: 1.0
+              employee_count:
+                source: Employee_Count
+                weight: 0.0279
+                worst: 1.0
+                best: 15.0
+                label: team size
               business_type_standing:
                 source: business_type_standing
                 weight: 0.0279
-                low: 0.0
-                high: 1.0
-                direction: higher_is_better
-                reason: constitution of the business
+                worst: 0.0
+                best: 1.0
+                label: constitution of the business
               location_standing:
                 source: location_standing
                 weight: 0.0279
-                low: 0.0
-                high: 1.0
-                direction: higher_is_better
-                reason: operating location tier
+                worst: 0.0
+                best: 1.0
+                label: operating location tier
           cashflow:
             label: Cash Flow
-            calibration:
-              slope: 0.436561
-              intercept: 47.578367
-              adj_r2: 0.9903
-              r2: 0.9903
-              mae: 0.5057
+            band:
+            - 47.5784
+            - 91.2345
             drivers:
-              credit_debit_ratio:
-                source: credit_debit_ratio
-                weight: 0.1627
-                low: 1.0
-                high: 1.6
-                direction: higher_is_better
-                reason: bank credits vs debits
-              balance_days_of_outflow:
-                source: balance_days_of_outflow
-                weight: 0.0286
-                low: 3.0
-                high: 45.0
-                direction: higher_is_better
-                reason: cash buffer in days of outflow
               cashflow_stability:
                 source: Cashflow_Stability_Index
                 weight: 0.5435
-                low: 0.45
-                high: 0.88
-                direction: higher_is_better
-                reason: month-to-month cashflow stability
+                worst: 0.45
+                best: 0.88
+                label: month-to-month cashflow stability
               overdraft_usage:
                 source: Overdraft_Usage_Ratio
                 weight: 0.2366
-                low: 0.05
-                high: 0.46
-                direction: lower_is_better
-                reason: overdraft utilisation
+                worst: 0.46
+                best: 0.05
+              credit_debit_ratio:
+                source: credit_debit_ratio
+                weight: 0.1627
+                worst: 1.0
+                best: 1.6
+                label: bank credits vs debits
+              balance_days_of_outflow:
+                source: balance_days_of_outflow
+                weight: 0.0286
+                worst: 3.0
+                best: 45.0
+                label: cash buffer in days of outflow
               dscr_proxy:
                 source: dscr_proxy
                 weight: 0.0286
-                low: 1.0
-                high: 6.5
-                direction: higher_is_better
-                reason: debt service coverage
+                worst: 1.0
+                best: 6.5
+                label: debt service coverage
           revenue_consistency:
             label: Revenue Consistency
-            calibration:
-              slope: 0.508147
-              intercept: 37.370099
-              adj_r2: 0.8986
-              r2: 0.8986
-              mae: 2.035
+            band:
+            - 37.3701
+            - 88.1848
             drivers:
               transaction_volatility:
                 source: Transaction_Volatility_Index
                 weight: 0.5729
-                low: 0.08
-                high: 0.55
-                direction: lower_is_better
-                reason: transaction volatility
+                worst: 0.55
+                best: 0.08
               seasonality:
                 source: Seasonality_Index
                 weight: 0.3703
-                low: 0.05
-                high: 0.8
-                direction: lower_is_better
-                reason: revenue seasonality
+                worst: 0.8
+                best: 0.05
+                label: revenue seasonality
               upi_daily_txn_count:
                 source: UPI_Daily_Txn_Count
                 weight: 0.0284
-                low: 1.0
-                high: 25.0
-                direction: higher_is_better
-                reason: daily digital transaction count
+                worst: 1.0
+                best: 25.0
+                label: daily digital transaction count
               revenue_triangulation_gap:
                 source: revenue_triangulation_gap
                 weight: 0.0284
-                low: 0.02
-                high: 0.22
-                direction: lower_is_better
-                reason: agreement between GST, bank and UPI revenue
+                worst: 0.22
+                best: 0.02
+                label: agreement between GST, bank and UPI revenue
           payment_behaviour:
             label: Payment Behaviour
-            calibration:
-              slope: 0.385693
-              intercept: 61.521531
-              adj_r2: 0.9971
-              r2: 0.9971
-              mae: 0.1602
+            band:
+            - 61.5215
+            - 100.0
             drivers:
-              emi_on_time_rate:
-                source: EMI_On_Time_Rate_Pct
-                weight: 0.1223
-                low: 76.0
-                high: 100.0
-                direction: higher_is_better
-                reason: loan EMI punctuality
-                optional: true
               vendor_payment_timeliness:
                 source: Vendor_Payment_Timeliness_Pct
                 weight: 0.5302
-                low: 62.0
-                high: 100.0
-                direction: higher_is_better
-                reason: supplier payment punctuality
+                worst: 62.0
+                best: 100.0
+                label: supplier payment punctuality
               invoice_payment_delay:
                 source: Avg_Invoice_Payment_Delay_Days
                 weight: 0.3184
-                low: 0.5
-                high: 45.0
-                direction: lower_is_better
-                reason: average invoice payment delay
+                worst: 45.0
+                best: 0.5
+              emi_on_time_rate:
+                source: EMI_On_Time_Rate_Pct
+                weight: 0.1223
+                worst: 76.0
+                best: 100.0
+                label: loan EMI punctuality
+                optional: true
               salary_consistency:
                 source: Salary_Consistency_Pct
                 weight: 0.0291
-                low: 68.0
-                high: 100.0
-                direction: higher_is_better
-                reason: payroll consistency
+                worst: 68.0
+                best: 100.0
           business_growth:
             label: Business Growth
-            calibration:
-              slope: 0.534824
-              intercept: 14.688376
-              adj_r2: 0.9423
-              r2: 0.9423
-              mae: 2.274
+            band:
+            - 14.6884
+            - 68.1708
             drivers:
               revenue_growth_rate:
                 source: Revenue_Growth_Rate_Pct
                 weight: 0.943
-                low: -25.0
-                high: 45.0
-                direction: higher_is_better
-                reason: revenue growth rate
+                worst: -25.0
+                best: 45.0
               turnover_per_employee:
                 source: turnover_per_employee
                 weight: 0.0285
-                low: 500000.0
-                high: 4700000.0
-                direction: higher_is_better
-                reason: turnover per employee
+                worst: 500000.0
+                best: 4700000.0
               gst_turnover_realisation:
                 source: gst_turnover_realisation
                 weight: 0.0285
-                low: 0.85
-                high: 1.15
-                direction: higher_is_better
-                reason: GST sales run-rate vs declared turnover
+                worst: 0.85
+                best: 1.15
+                label: GST sales run-rate vs declared turnover
           compliance:
             label: Compliance
-            calibration:
-              slope: 0.365466
-              intercept: 63.969502
-              adj_r2: 0.9959
-              r2: 0.9959
-              mae: 0.307
+            band:
+            - 63.9695
+            - 100.0
             drivers:
               gst_filing_timeliness:
                 source: GST_Filing_Timeliness_Pct
                 weight: 0.7219
-                low: 65.0
-                high: 100.0
-                direction: higher_is_better
-                reason: GST filing timeliness
-              gst_return_frequency:
-                source: gst_return_frequency_standing
-                weight: 0.0283
-                low: 0.0
-                high: 1.0
-                direction: higher_is_better
-                reason: GST return filing frequency
+                worst: 65.0
+                best: 100.0
+                label: GST filing timeliness
               payroll_regularity:
                 source: Salary_Consistency_Pct
                 weight: 0.2215
-                low: 68.0
-                high: 100.0
-                direction: higher_is_better
-                reason: EPFO payroll regularity
+                worst: 68.0
+                best: 100.0
+                label: EPFO payroll regularity
+              gst_return_frequency:
+                source: gst_return_frequency_standing
+                weight: 0.0283
+                worst: 0.0
+                best: 1.0
+                label: GST return filing frequency
               gst_bank_reconciliation:
                 source: gst_bank_reconciliation_gap
                 weight: 0.0283
-                low: 0.01
-                high: 0.15
-                direction: lower_is_better
-                reason: GST sales vs bank credit reconciliation
+                worst: 0.15
+                best: 0.01
+                label: GST sales vs bank credit reconciliation
     outs:
     - path: model_artifact/scoring_bundle.joblib
       hash: md5
-      md5: 40f40248a4d9b23c62548cea433d17af
+      md5: 895e35f77f2cd23da453eb70339fa771
       size: 1879330
     - path: model_artifact/training_report.json
       hash: md5
-      md5: 0d019ac92013a76024f51f52b040c262
-      size: 17668
+      md5: bea63e95d433a794ac971efe060ef5be
+      size: 17667
   score:
     cmd: python -m src.model.batch_inference
     deps:
@@ -739,7 +637,7 @@ stages:
       size: 13258354
     - path: model_artifact/scoring_bundle.joblib
       hash: md5
-      md5: 40f40248a4d9b23c62548cea433d17af
+      md5: 895e35f77f2cd23da453eb70339fa771
       size: 1879330
     - path: src/scoring/scoring_orchestration.py
       hash: md5
@@ -784,14 +682,14 @@ stages:
     outs:
     - path: data/processed/portfolio_scores.csv
       hash: md5
-      md5: 1b8aa5dd1cdc498825c763e472f85a40
-      size: 21530102
+      md5: b1311f127d6d2c969df0a0912b1f926c
+      size: 21543667
   evaluate:
     cmd: python -m src.evaluation report
     deps:
     - path: model_artifact/scoring_bundle.joblib
       hash: md5
-      md5: 40f40248a4d9b23c62548cea433d17af
+      md5: 895e35f77f2cd23da453eb70339fa771
       size: 1879330
     - path: src/evaluation
       hash: md5
@@ -814,9 +712,9 @@ stages:
     outs:
     - path: data/eval/reports/latest.json
       hash: md5
-      md5: aba8a06e56a68fc94ca0f897501ed096
-      size: 10962
+      md5: 69582384b6aa1f5d61a87cce3989d5fb
+      size: 10961
     - path: data/eval/reports/latest.md
       hash: md5
-      md5: c98e938d44e116e8e932550ec52e54c5
+      md5: faf38a236247d1bf60d85847c0788c79
       size: 2664
