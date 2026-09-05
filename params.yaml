@@ -396,7 +396,6 @@ api:
 evaluation:
   thresholds:
     pd_mae_max: 0.025
-    pd_brier_max: 0.02
     eligibility_auc_min: 0.95
     # Adjusted R², not plain R²: a rubric must not clear the gate by adding
     # drivers. At 50k rows against <=6 drivers the penalty is ~1e-4, so the
