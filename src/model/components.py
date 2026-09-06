@@ -1,22 +1,12 @@
 """Feature matrix assembly, XGBoost trainers and evaluators.
 
-Two things in here carry most of the project's credibility:
-
 **The leakage firewall.** ``build_feature_matrix`` raises if any column from
-``schema.label_columns`` — or any pillar score we computed ourselves — reaches the
-model. The headline claim is that alternative data alone predicts credit risk; a
-single leaked ``Financial_Health_Score`` would make that claim worthless while
-making the metrics look superb. So it is enforced in code and unit-tested, not
-left to discipline.
+``schema.label_columns`` - or any pillar score we computed
+ourselves - reaches the model.
 
 **Native NaN handling.** ``EMI_On_Time_Rate_Pct`` is NULL for 65% of firms because
 they have never had a loan. XGBoost sends missing values down a learned default
-branch, so "no track record" stays a modelled state. Imputing it would invent a
-repayment history for exactly the New-to-Credit firms this system exists to serve.
-
-Categorical columns are handed over as pandas ``category`` dtype and split
-natively; the ``enable_categorical`` and ``tree_method: hist`` pair that makes
-that legal lives in ``params.yaml`` alongside the rest of the hyperparameters.
+branch, so "no track record" stays a modelled state.
 """
 
 from __future__ import annotations
@@ -78,25 +68,6 @@ def model_feature_names(frame: pd.DataFrame, config: dict[str, Any] | None = Non
     Built by intersection with an explicit allowlist rather than by subtracting
     known-bad columns, so a new label column added upstream cannot silently become
     a feature.
-
-    **Derived ratios and the ``*_standing`` ordinals are both deliberately
-    absent.** Every one of them is a deterministic function of raw
-    columns that are already here, so a booster that can split on the raws gains no
-    information from the transform — it only splits gain and SHAP across collinear
-    encodings of one variable, understating the raw column and inventing a phantom
-    feature beside it. The ordinal case is the sharpest: a native categorical
-    partition split is strictly more expressive than a fixed 0-1 ordering.
-
-    This is measured, not assumed. Ablating the engineered block on a 40k/10k split
-    *improves* the PD regressor (adjusted R² 0.9035 -> 0.9053, MAE 0.020648 ->
-    0.020446) and leaves eligibility AUC unchanged at 0.9776; the ablated block
-    accounted for 0.8% of PD gain importance and 2.5% of eligibility.
-    That is expected rather than surprising — the labels are generated from the raw
-    columns, so no ratio over them can carry new signal.
-
-    Derived features therefore belong to ``src/scoring`` and ``src/data``, which need
-    monotone, human-nameable drivers for the pillar rubrics and the anomaly flags.
-    The model does not.
     """
     cfg = config if config is not None else load_config()
     allowed = [*cfg["schema"]["feature_columns"]]
@@ -119,7 +90,7 @@ def build_feature_matrix(
     """Return ``(X, feature_names, categorical_feature_names)``.
 
     Pass ``features`` at inference time to reproduce the training contract exactly,
-    including column order — XGBoost is positional and a reordered frame silently
+    including column order - XGBoost is positional and a reordered frame silently
     scores nonsense.
     """
     cfg = config if config is not None else load_config()
@@ -154,7 +125,7 @@ def stratified_split(
     """Train/test split stratified on ``Customer_Segment``.
 
     Stratifying on segment is what makes the per-segment fairness slices
-    meaningful — an unstratified split can leave the test set light on NTC firms,
+    meaningful - an unstratified split can leave the test set light on NTC firms,
     which is precisely the cohort whose metrics we are claiming.
     """
     cfg = config if config is not None else load_config()
@@ -177,7 +148,7 @@ def evaluate_regression(
     """Fit metrics, headlined by adjusted R².
 
     ``n_features`` is mandatory rather than optional because plain R² rises with
-    every column handed to the model, informative or not — so a fit metric
+    every column handed to the model, informative or not - so a fit metric
     quoted without its predictor count is not a claim anyone can check. The
     unadjusted figure stays in the dict for readers who expect it; the gates
     read ``adj_r2``.
@@ -210,7 +181,7 @@ def evaluate_probability(
 
 
 def ks_statistic(actual: NDArray[Any], scores: NDArray[np.float64]) -> float:
-    """Kolmogorov-Smirnov separation — the number a credit risk team asks for first."""
+    """Kolmogorov-Smirnov separation."""
     actual = np.asarray(actual).astype(bool)
     if actual.all() or not actual.any():
         return 0.0
@@ -320,7 +291,7 @@ def feature_importance(
 
     Returned as an ordered list rather than a dict because the ranking *is* the
     information, and a dict loses it the moment it is serialised by anything that
-    sorts keys — which our JSON writer does, deliberately, for stable diffs.
+    sorts keys - which our JSON writer does, deliberately, for stable diffs.
     """
     raw = np.asarray(model.estimator.feature_importances_, dtype="float64")
     total = raw.sum() or 1.0

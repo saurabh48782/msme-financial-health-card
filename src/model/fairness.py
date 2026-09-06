@@ -1,14 +1,11 @@
 """Slice metrics by segment, location, industry and constitution.
-
-This is the project's central claim under test. The dataset deliberately shows
-thin-file firms are not inherently worse — mean FHS is 74.3 / 74.5 / 75.4 across
-NTC / NTB / Existing-to-Credit. If our model reintroduces a segment penalty, the
-system has recreated the exclusion it was built to remove, and no amount of AUC
-compensates.
+The dataset deliberately shows thin-file firms are not inherently worse -
+mean FHS is 74.3 / 74.5 / 75.4 across NTC / NTB / Existing-to-Credit.
+If our model reintroduces a segment penalty, the system has recreated
+the exclusion it was built to remove, and no amount of AUC compensates.
 
 So every slice's metrics are computed, logged to MLflow, rendered on the metrics
-dashboard, and asserted by a marker-gated regression test. The claim is a failing
-test, not a paragraph.
+dashboard, and asserted by a marker-gated regression test.
 """
 
 from __future__ import annotations

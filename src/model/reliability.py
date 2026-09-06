@@ -2,8 +2,8 @@
 
 A PD is not a ranking, it is a price. If the model says 8% and the realised rate
 is 12%, every loan in that bucket is underpriced regardless of how good the AUC
-is. So discrimination is not enough and the report carries a reliability curve —
-predicted PD against realised PD, in equal-count bins — plus the expected
+is. So discrimination is not enough and the report carries a reliability curve -
+predicted PD against realised PD, in equal-count bins - plus the expected
 calibration error that summarises it.
 
 The PD head is an XGBoost **regressor** on a continuous target, already trained to

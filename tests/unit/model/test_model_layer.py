@@ -22,7 +22,7 @@ class TestReliability:
     """A PD is a price, not a ranking: a model 3 points high misprices every loan.
 
     So the report has to measure whether the number is trustworthy, not only
-    whether the ordering is. These tests pin the measurement itself — there is
+    whether the ordering is. These tests pin the measurement itself - there is
     deliberately no fitted corrective map to test; see
     :mod:`src.model.reliability` for why.
     """
@@ -156,7 +156,7 @@ class TestFairness:
 
 class TestInputExample:
     """MLflow infers the signature by scoring this frame, so it has to be a record
-    the pipeline can actually take — an all-zeros row makes XGBoost reject 0.0 as a
+    the pipeline can actually take - an all-zeros row makes XGBoost reject 0.0 as a
     category and the model registers without a signature."""
 
     @pytest.fixture
