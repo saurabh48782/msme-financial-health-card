@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+{% block title %}Model metrics · MSME Health Card{% endblock %}
+
+{% block header %}
+<h1 class="h4 mb-1">Model metrics</h1>
+<p class="text-body-secondary small">
+  Holdout performance, PD calibration and fairness slices for the model currently loaded.
+  Every threshold shown is enforced by <code>pytest -m eval</code>, so these are gates
+  rather than claims.
+</p>
+{% endblock %}
+
+{% block body %}
+{% if not report %}
+  <div class="alert alert-warning">
+    No training report available. Run
+    <code>python -m src.model.model_orchestration</code> to produce one.
+  </div>
+{% else %}
+
+{% macro gate(label, value, threshold, higher_is_better, fmt='{:.4f}') %}
+  {% set passed = (value >= threshold) if higher_is_better else (value <= threshold) %}
+  <tr>
+    <td>{{ label }}</td>
+    <td class="text-end font-monospace fw-semibold">{{ fmt.format(value) }}</td>
+    <td class="text-end font-monospace text-body-secondary">
+      {{ '≥' if higher_is_better else '≤' }} {{ fmt.format(threshold) }}
+    </td>
+    <td class="text-end">
+      <span class="badge text-bg-{{ 'success' if passed else 'danger' }}">
+        {{ 'pass' if passed else 'FAIL' }}
+      </span>
+    </td>
+  </tr>
+{% endmacro %}
+
+<div class="row g-3 mb-3">
+  <div class="col-lg-6">
+    <div class="card shadow-sm h-100">
+      <div class="card-header bg-body"><strong>Threshold gates</strong></div>
+      <div class="table-scroll">
+        <table class="table table-sm align-middle mb-0">
+          <thead><tr><th>Metric</th><th class="text-end">Value</th><th class="text-end">Threshold</th><th class="text-end">Gate</th></tr></thead>
+          <tbody>
+            {{ gate('PD mean absolute error', report.pd_metrics.mae, thresholds.pd_mae_max, false) }}
+            {{ gate('Eligibility ROC-AUC', report.eligibility_metrics.roc_auc, thresholds.eligibility_auc_min, true) }}
+            {{ gate('Financial Health Score MAE', report.fhs_metrics.mae, thresholds.fhs_mae_max, false, '{:.3f}') }}
+            {% for key, metrics in report.pillar_metrics.items() %}
+              {% if 'adj_r2' in metrics %}
+                {{ gate('Pillar adj. R² — ' ~ pillar_labels.get(key, key), metrics.adj_r2, thresholds.pillar_adj_r2_min, true) }}
+              {% else %}
+                {# A report written before the gate moved to adjusted R². #}
+                <tr><td>Pillar adj. R² — {{ pillar_labels.get(key, key) }}</td>
+                    <td class="text-end font-monospace">—</td>
+                    <td class="text-end font-monospace">{{ thresholds.pillar_adj_r2_min }}</td>
+                    <td class="text-end"><span class="badge text-bg-secondary">re-train</span></td></tr>
+              {% endif %}
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-6">
+    <div class="card shadow-sm h-100">
+      <div class="card-header bg-body"><strong>Model performance</strong></div>
+      <div class="card-body">
+        <h3 class="h6">Probability of default</h3>
+        <div class="table-scroll mb-3">
+          <table class="table table-sm mb-0">
+            <tbody>
+              {% for key in ('adj_r2', 'r2', 'mae', 'rmse', 'calibration_bias') %}
+              {% if key in report.pd_metrics %}
+              <tr><td class="text-body-secondary">{{ key.replace('_',' ') }}</td>
+                  <td class="text-end font-monospace">{{ '%.6f' % report.pd_metrics[key] }}</td></tr>
+              {% endif %}
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <h3 class="h6">Credit eligibility</h3>
+        <div class="table-scroll">
+          <table class="table table-sm mb-0">
+            <tbody>
+              {% for key in ('roc_auc', 'pr_auc', 'ks', 'precision', 'recall', 'f1') %}
+              {% if key in report.eligibility_metrics %}
+              <tr><td class="text-body-secondary">{{ key.replace('_',' ') }}</td>
+                  <td class="text-end font-monospace">{{ '%.6f' % report.eligibility_metrics[key] }}</td></tr>
+              {% endif %}
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-lg-6">
+    <div class="card shadow-sm h-100">
+      <div class="card-header bg-body">
+        <strong>PD calibration</strong>
+        <span class="text-body-secondary small">— predicted vs realised, by decile</span>
+      </div>
+      <div class="card-body"><div class="chart-box"><canvas id="reliabilityChart"></canvas></div></div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card shadow-sm h-100">
+      <div class="card-header bg-body"><strong>Pillar rubric fit</strong></div>
+      <div class="card-body"><div class="chart-box"><canvas id="pillarFit"></canvas></div></div>
+    </div>
+  </div>
+</div>
+
+{% set fairness = report.get('fairness', {}) %}
+{% if fairness.get('slices') %}
+<div class="card shadow-sm">
+  <div class="card-header bg-body">
+    <strong>Fairness slices</strong>
+    <span class="text-body-secondary small">
+      — the segment-neutrality claim. Deviation is measured on model <em>error</em>,
+      not on outcome rates: cohorts may legitimately differ, the model's error must not.
+    </span>
+  </div>
+  <div class="card-body">
+    {% if fairness.get('max_deviation') %}
+    <div class="alert alert-{{ 'success' if (fairness.max_deviation.values() | map(attribute='pd_mae') | max) * 100 <= thresholds.fairness_max_deviation_points else 'danger' }} small">
+      Largest PD-error deviation across every slice:
+      <strong>{{ '%.4f' % ((fairness.max_deviation.values() | map(attribute='pd_mae') | max) * 100) }} points</strong>
+      against a limit of {{ thresholds.fairness_max_deviation_points }} points.
+    </div>
+    {% endif %}
+    <div class="table-scroll">
+      <table class="table table-sm align-middle mb-0">
+        <thead>
+          <tr><th>Slice</th><th>Level</th><th class="text-end">Firms</th>
+              <th class="text-end">PD MAE</th><th class="text-end">PD bias</th>
+              <th class="text-end">AUC</th><th class="text-end">Approval (model)</th>
+              <th class="text-end">Approval (actual)</th></tr>
+        </thead>
+        <tbody>
+          <tr class="table-active fw-semibold">
+            <td>overall</td><td>all</td>
+            <td class="text-end">{{ '{:,.0f}'.format(fairness.overall.rows) }}</td>
+            <td class="text-end font-monospace">{{ '%.5f' % fairness.overall.pd_mae }}</td>
+            <td class="text-end font-monospace">{{ '%+.5f' % fairness.overall.pd_bias }}</td>
+            <td class="text-end font-monospace">{{ '%.4f' % fairness.overall.get('eligibility_auc', 0) }}</td>
+            <td class="text-end font-monospace">{{ '%.3f' % fairness.overall.approval_rate_predicted }}</td>
+            <td class="text-end font-monospace">{{ '%.3f' % fairness.overall.approval_rate_actual }}</td>
+          </tr>
+          {% for column, levels in fairness.slices.items() %}
+            {% for level, metrics in levels.items() %}
+            <tr>
+              <td class="small text-body-secondary">{{ column }}</td>
+              <td>{{ level }}</td>
+              <td class="text-end">{{ '{:,.0f}'.format(metrics.rows) }}</td>
+              <td class="text-end font-monospace">{{ '%.5f' % metrics.pd_mae }}</td>
+              <td class="text-end font-monospace">{{ '%+.5f' % metrics.pd_bias }}</td>
+              <td class="text-end font-monospace">{{ '%.4f' % metrics.get('eligibility_auc', 0) }}</td>
+              <td class="text-end font-monospace">{{ '%.3f' % metrics.approval_rate_predicted }}</td>
+              <td class="text-end font-monospace">{{ '%.3f' % metrics.approval_rate_actual }}</td>
+            </tr>
+            {% endfor %}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if report %}
+<script id="metrics-data" type="application/json">{{ chart_data | safe }}</script>
+<script type="module" src="{{ asset(request, '/js/metrics.js') }}"></script>
+{% endif %}
+{% endblock %}

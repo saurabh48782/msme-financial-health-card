@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block title %}Health Cards · MSME Health Card{% endblock %}
+
+{% block header %}
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+  <h1 class="h4 mb-0">Health Cards</h1>
+  <span class="text-body-secondary small">{{ '{:,}'.format(result.total) }} firms</span>
+</div>
+{% endblock %}
+
+{% block body %}
+<form class="card shadow-sm mb-3" method="get" action="/healthcards">
+  <div class="card-body">
+    <div class="row g-2 align-items-end">
+      <div class="col-6 col-md-3">
+        <label class="form-label small mb-1" for="grade">Grade</label>
+        <select class="form-select form-select-sm" id="grade" name="grade">
+          <option value="">Any</option>
+          {% for g in grades %}
+            <option value="{{ g }}" {% if filters.get('grade') == g %}selected{% endif %}>{{ g }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-6 col-md-3">
+        <label class="form-label small mb-1" for="risk_band">Risk band</label>
+        <select class="form-select form-select-sm" id="risk_band" name="risk_band">
+          <option value="">Any</option>
+          {% for b in bands %}
+            <option value="{{ b }}" {% if filters.get('risk_band') == b %}selected{% endif %}>{{ b }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-6 col-md-3">
+        <label class="form-label small mb-1" for="customer_segment">Segment</label>
+        <select class="form-select form-select-sm" id="customer_segment" name="customer_segment">
+          <option value="">Any</option>
+          {% for s in segments %}
+            <option value="{{ s }}" {% if filters.get('customer_segment') == s %}selected{% endif %}>{{ s }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-6 col-md-3 d-flex gap-2">
+        <button class="btn btn-primary btn-sm flex-grow-1" type="submit">Filter</button>
+        <a class="btn btn-outline-secondary btn-sm" href="/healthcards">Reset</a>
+      </div>
+    </div>
+  </div>
+</form>
+
+{% if result.items %}
+<div class="card shadow-sm">
+  <div class="table-scroll">
+    <table class="table table-hover table-sm align-middle mb-0 table-sticky">
+      <thead>
+        <tr>
+          <th>MSME</th><th>Segment</th><th>Industry</th>
+          <th class="text-end">FHS</th><th>Grade</th><th>Risk</th>
+          <th class="text-end">PD</th><th>Decision</th>
+          <th class="text-end">Limit</th><th>Flags</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in result.items %}
+        <tr>
+          <td><a href="/healthcard/{{ item.msme_id }}" class="fw-semibold text-decoration-none">{{ item.msme_id }}</a></td>
+          <td class="small">{{ item.customer_segment or '—' }} {{ m.thin_file_badge(item.thin_file) }}</td>
+          <td class="small">{{ item.industry or '—' }}</td>
+          <td class="text-end fw-semibold">{{ item.financial_health_score | number }}</td>
+          <td>{{ m.grade_badge(item.grade) }}</td>
+          <td>{{ m.band_badge(item.risk_band) }}</td>
+          <td class="text-end">{{ item.probability_of_default | percent(2) }}</td>
+          <td>
+            {% if item.eligible %}
+              <span class="badge text-bg-success">Eligible</span>
+            {% else %}
+              <span class="badge text-bg-secondary">Declined</span>
+            {% endif %}
+          </td>
+          <td class="text-end">{{ item.credit_limit_inr | rupees }}</td>
+          <td>
+            {% if item.flag_count %}
+              <span class="badge text-bg-warning">{{ item.flag_count }}</span>
+            {% else %}<span class="text-body-secondary">—</span>{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% set pages = (result.total // result.page_size) + (1 if result.total % result.page_size else 0) %}
+{% if pages > 1 %}
+{% set query = [] %}
+{% for k, v in filters.items() %}{% set _ = query.append(k ~ '=' ~ v) %}{% endfor %}
+{% set qs = ('&' ~ query | join('&')) if query else '' %}
+<nav class="mt-3" aria-label="Health card pages">
+  <ul class="pagination pagination-sm justify-content-center flex-wrap">
+    <li class="page-item {% if result.page <= 1 %}disabled{% endif %}">
+      <a class="page-link" href="?page={{ result.page - 1 }}{{ qs }}">Previous</a>
+    </li>
+    <li class="page-item disabled">
+      <span class="page-link">Page {{ result.page }} of {{ '{:,}'.format(pages) }}</span>
+    </li>
+    <li class="page-item {% if result.page >= pages %}disabled{% endif %}">
+      <a class="page-link" href="?page={{ result.page + 1 }}{{ qs }}">Next</a>
+    </li>
+  </ul>
+</nav>
+{% endif %}
+{% else %}
+<div class="alert alert-info">No firms match these filters.</div>
+{% endif %}
+{% endblock %}

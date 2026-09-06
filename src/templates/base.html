@@ -1,0 +1,72 @@
+{# Shared shell: Bootstrap 5 + Chart.js from CDN, both SRI-pinned. No SPA, no
+   build step, no npm — the dashboard is HTML a browser can render with
+   JavaScript switched off, plus a little vanilla ES module for the charts. #}
+<!doctype html>
+<html lang="en" data-bs-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}MSME Financial Health Card{% endblock %}</title>
+  <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css"
+        integrity="sha512-jnSuA4Ss2PkkikSOLtYs8BlYIeeIK1h99ty4YfvRPAlzr377vr3CXDb7sb7eEEBYjDtcYj+AjBH3FLv5uSJuXg=="
+        crossorigin="anonymous" referrerpolicy="no-referrer">
+  <link rel="stylesheet" href="{{ asset(request, '/css/app.css') }}">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>&#128200;</text></svg>">
+</head>
+<body class="bg-body-tertiary">
+<nav class="navbar navbar-expand-lg bg-dark border-bottom border-body" data-bs-theme="dark">
+  <div class="container-fluid">
+    <a class="navbar-brand fw-semibold" href="/">
+      <span class="me-1">📊</span> MSME Health Card
+    </a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse"
+            data-bs-target="#nav" aria-controls="nav" aria-expanded="false"
+            aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="nav">
+      <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+        {% set nav = [('/portfolio','Portfolio'), ('/healthcards','Health Cards'),
+                      ('/search','Search'), ('/assess','Assess a Firm'),
+                      ('/anomalies','Anomalies'), ('/simulator','Simulator'),
+                      ('/metrics','Model Metrics')] %}
+        {% for href, label in nav %}
+          <li class="nav-item">
+            <a class="nav-link {% if request.url.path.startswith(href) %}active fw-semibold{% endif %}"
+               href="{{ href }}">{{ label }}</a>
+          </li>
+        {% endfor %}
+      </ul>
+      <ul class="navbar-nav">
+        <li class="nav-item"><a class="nav-link" href="/docs">API Docs</a></li>
+      </ul>
+    </div>
+  </div>
+</nav>
+
+<main class="container-fluid px-3 px-lg-4 py-4">
+  {% block header %}{% endblock %}
+  {% block body %}{% endblock %}
+</main>
+
+<footer class="container-fluid px-3 px-lg-4 py-4 text-body-secondary small border-top mt-4">
+  <div class="d-flex flex-wrap gap-3 justify-content-between">
+    <span>
+      Policy <code>{{ policy_version }}</code> ·
+      Rubric <code>{{ rubric_version }}</code> ·
+      Model <code>{{ model_version or 'rubric-only' }}</code>
+    </span>
+    <span>Scores are computed from consent-based alternative data. Synthetic dataset — not a live lending decision.</span>
+  </div>
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/js/bootstrap.bundle.min.js"
+        integrity="sha512-7Pi/otdlbbCR+LnW+F7PwFcSDJOuUJB3OxtEHbg4vSMvzvJjde4Po1v4BR9Gdc9aXNUNFVUY+SK51wWT8WF0Gg=="
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.5.1/chart.umd.min.js"
+        integrity="sha512-WoViKhKD4qI2WruSZqv9+kvM4WfFhUMQCLN4QlDTt5aU56fLQy2gYoxWIqlEnXqJy/+Ac5q/hk1oWfqnMDhwMA=="
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

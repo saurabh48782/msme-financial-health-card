@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block title %}What-if simulator · MSME Health Card{% endblock %}
+
+{% block header %}
+<h1 class="h4 mb-1">What-if simulator</h1>
+<p class="text-body-secondary small">
+  Move a lever the firm can actually control, re-score, and see the limit, rate and
+  band move with it. This is what turns a decline into advice.
+</p>
+{% endblock %}
+
+{% block body %}
+<form class="card shadow-sm mb-3" method="get" action="/simulator">
+  <div class="card-body">
+    <div class="row g-2 align-items-end">
+      <div class="col-12 col-md-4">
+        <label class="form-label small mb-1" for="msme_id">MSME ID</label>
+        <input class="form-control form-control-sm" id="msme_id" name="msme_id"
+               value="{{ msme_id or '' }}" placeholder="MSME0000001" autocomplete="off" required>
+      </div>
+      <div class="col-6 col-md-2">
+        <button class="btn btn-primary btn-sm w-100" type="submit">Load firm</button>
+      </div>
+    </div>
+  </div>
+</form>
+
+{% if error %}
+  <div class="alert alert-warning">{{ error }}</div>
+{% endif %}
+
+{% if card and profile %}
+<div class="row g-3">
+  <div class="col-lg-5">
+    <div class="card shadow-sm">
+      <div class="card-header bg-body">
+        <strong>Levers</strong>
+        <span class="text-body-secondary small">— current values pre-filled</span>
+      </div>
+      <div class="card-body">
+        <form id="simulate-form" data-msme-id="{{ card.msme_id }}">
+          {% for name, label, min, max, step in levers %}
+          {% set current = profile.get(name) %}
+          <div class="mb-3">
+            <label class="form-label small mb-1 d-flex justify-content-between" for="lever-{{ name }}">
+              <span>{{ label }}</span>
+              <output class="text-body-secondary font-monospace" id="out-{{ name }}"
+                      for="lever-{{ name }}">{{ current | number(2) }}</output>
+            </label>
+            <input type="range" class="form-range" id="lever-{{ name }}" name="{{ name }}"
+                   min="{{ min }}" max="{{ max }}" step="{{ step }}"
+                   value="{{ current if current is not none else min }}"
+                   data-original="{{ current if current is not none else min }}">
+          </div>
+          {% endfor %}
+          <div class="d-flex gap-2">
+            <button class="btn btn-primary btn-sm flex-grow-1" type="submit">Re-score</button>
+            <button class="btn btn-outline-secondary btn-sm" type="reset" id="reset-levers">Reset</button>
+          </div>
+          <p class="small text-body-secondary mt-2 mb-0">
+            Only changed levers are submitted, so the simulation shows the effect of
+            your edits and nothing else.
+          </p>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-7">
+    <div class="card shadow-sm mb-3">
+      <div class="card-header bg-body"><strong>Current standing</strong></div>
+      <div class="card-body">
+        <div class="row row-cols-2 row-cols-md-4 g-3">
+          <div class="col">
+            <div class="text-body-secondary small text-uppercase fw-semibold">Score</div>
+            <div class="fs-4 fw-semibold">{{ card.financial_health_score | number }}</div>
+            <div>{{ m.grade_badge(card.grade) }}</div>
+          </div>
+          <div class="col">
+            <div class="text-body-secondary small text-uppercase fw-semibold">Risk</div>
+            <div class="fs-4 fw-semibold">{{ card.credit.probability_of_default | percent(2) }}</div>
+            <div>{{ m.band_badge(card.credit.risk_band) }}</div>
+          </div>
+          <div class="col">
+            <div class="text-body-secondary small text-uppercase fw-semibold">Limit</div>
+            <div class="fs-4 fw-semibold">{{ card.credit.credit_limit_inr | rupees }}</div>
+          </div>
+          <div class="col">
+            <div class="text-body-secondary small text-uppercase fw-semibold">Rate</div>
+            <div class="fs-4 fw-semibold">{{ card.credit.indicative_rate_pct | number }}%</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card shadow-sm" id="result-card" hidden>
+      <div class="card-header bg-body d-flex justify-content-between align-items-center">
+        <strong>Simulated outcome</strong>
+        <span id="result-grades" class="small"></span>
+      </div>
+      <div class="card-body">
+        <div id="result-alert"></div>
+        <div class="table-scroll">
+          <table class="table table-sm align-middle mb-0">
+            <thead><tr><th>Metric</th><th class="text-end">Before</th><th class="text-end">After</th><th class="text-end">Change</th></tr></thead>
+            <tbody id="result-rows"></tbody>
+          </table>
+        </div>
+        <div class="chart-box mt-3"><canvas id="simPillars"></canvas></div>
+      </div>
+    </div>
+
+    <div class="alert alert-danger mt-3" id="result-error" hidden></div>
+  </div>
+</div>
+{% elif not error %}
+<div class="card shadow-sm">
+  <div class="card-body text-body-secondary">
+    Enter an MSME ID above to load its current standing and start simulating.
+    Try <a href="/simulator?msme_id=MSME0000002">MSME0000002</a>, a firm currently declined.
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script type="module" src="{{ asset(request, '/js/simulator.js') }}"></script>
+{% endblock %}

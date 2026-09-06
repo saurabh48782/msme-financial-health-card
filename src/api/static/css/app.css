@@ -1,0 +1,27 @@
+/* Small additions only. Bootstrap does the work; this file exists for the few
+   things a utility class cannot express. */
+
+.stat-grid { row-gap: 1rem; }
+
+/* Pillar bar: the driver contributions read left-to-right in score order. */
+.pillar-bar { height: 0.65rem; border-radius: 0.35rem; overflow: hidden; background: var(--bs-secondary-bg); }
+.pillar-bar > span { display: block; height: 100%; }
+
+.driver-row td { vertical-align: middle; }
+.driver-unavailable { opacity: 0.55; }
+
+/* Fixed height so a chart cannot grow without bound inside a flex column. */
+.chart-box { position: relative; height: 280px; }
+.chart-box-tall { position: relative; height: 360px; }
+
+.reason-positive { border-left: 3px solid var(--bs-success); }
+.reason-negative { border-left: 3px solid var(--bs-danger); }
+
+.table-sticky thead th { position: sticky; top: 0; z-index: 2; background: var(--bs-body-bg); }
+
+.gauge-value { font-size: 2.75rem; line-height: 1; font-weight: 650; }
+
+code { font-size: 0.85em; }
+
+/* Wide tables scroll inside their own container rather than the page body. */
+.table-scroll { overflow-x: auto; }

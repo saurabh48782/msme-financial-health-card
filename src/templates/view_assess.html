@@ -1,0 +1,206 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block title %}Assess a firm · MSME Health Card{% endblock %}
+
+{% block header %}
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-3">
+  <div>
+    <h1 class="h4 mb-1">Assess a firm</h1>
+    <p class="text-body-secondary small mb-0">
+      Enter a firm's consent-based evidence and get the underwriting decision back:
+      lend or decline, how much, on what terms, and which of the six pillars drove it.
+      The page posts to <code>/api/v1/score</code> — nothing is stored.
+    </p>
+  </div>
+  <a class="btn btn-outline-secondary btn-sm" href="/docs#/scoring/score_api_v1_score_post">API contract</a>
+</div>
+{% endblock %}
+
+{% block body %}
+<form class="card shadow-sm mb-3" method="get" action="/assess">
+  <div class="card-body">
+    <div class="row g-2 align-items-end">
+      <div class="col-12 col-md-4">
+        <label class="form-label small mb-1" for="prefill-id">Start from a stored firm</label>
+        <input class="form-control form-control-sm" id="prefill-id" name="msme_id"
+               value="{{ msme_id or '' }}" placeholder="MSME0000001" autocomplete="off" required>
+      </div>
+      <div class="col-6 col-md-2">
+        <button class="btn btn-outline-primary btn-sm w-100" type="submit">Prefill</button>
+      </div>
+      <div class="col-12 col-md-6 small text-body-secondary">
+        Optional. Loads that firm's evidence into the form so you can edit a few
+        numbers rather than type all thirty-three.
+      </div>
+    </div>
+  </div>
+</form>
+
+{% if error %}<div class="alert alert-warning">{{ error }}</div>{% endif %}
+
+<div class="row g-3">
+  <div class="col-xl-5">
+    <form id="assess-form">
+      <div class="accordion shadow-sm mb-3" id="assess-sections">
+        {% for title, fields in sections %}
+        {% set outer = loop %}
+        <div class="accordion-item">
+          <h2 class="accordion-header">
+            <button class="accordion-button {% if not outer.first %}collapsed{% endif %}" type="button"
+                    data-bs-toggle="collapse" data-bs-target="#section-{{ outer.index }}"
+                    aria-expanded="{{ 'true' if outer.first else 'false' }}"
+                    aria-controls="section-{{ outer.index }}">
+              <span class="fw-semibold">{{ title }}</span>
+              <span class="badge text-bg-light border ms-2">{{ fields | length }}</span>
+            </button>
+          </h2>
+          <div id="section-{{ outer.index }}"
+               class="accordion-collapse collapse {% if outer.first %}show{% endif %}"
+               data-bs-parent="#assess-sections">
+            <div class="accordion-body">
+              <div class="row g-2">
+                {% for field in fields %}
+                {% set value = prefill.get(field.name, field.example) %}
+                <div class="col-12 col-sm-6">
+                  <label class="form-label small mb-1" for="f-{{ field.name }}">
+                    {{ field.label }}{% if field.unit %}
+                      <span class="text-body-secondary">({{ field.unit }})</span>{% endif %}
+                    {% if not field.required %}
+                      <span class="text-body-secondary fw-normal">— optional</span>{% endif %}
+                  </label>
+                  {% if field.kind == 'select' %}
+                    <select class="form-select form-select-sm" id="f-{{ field.name }}"
+                            name="{{ field.name }}" data-kind="select"
+                            {% if field.required %}required{% endif %}>
+                      {% for choice in field.choices %}
+                      <option value="{{ choice }}" {% if choice == value %}selected{% endif %}>{{ choice }}</option>
+                      {% endfor %}
+                    </select>
+                  {% elif field.kind == 'number' %}
+                    <input class="form-control form-control-sm" type="number" data-kind="number"
+                           id="f-{{ field.name }}" name="{{ field.name }}" value="{{ value }}"
+                           {% if field.min is not none %}min="{{ field.min }}"{% endif %}
+                           {% if field.max is not none %}max="{{ field.max }}"{% endif %}
+                           step="{{ field.step }}" {% if field.required %}required{% endif %}>
+                  {% else %}
+                    <input class="form-control form-control-sm" type="text" data-kind="text"
+                           id="f-{{ field.name }}" name="{{ field.name }}" value="{{ value }}"
+                           autocomplete="off"
+                           {% if field.name == 'Industry' %}list="industry-options"{% endif %}
+                           {% if field.required %}required{% endif %}>
+                  {% endif %}
+                  {% if field.hint %}<div class="form-text small">{{ field.hint }}</div>{% endif %}
+                </div>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+
+      <datalist id="industry-options">
+        {% for industry in industries %}<option value="{{ industry }}"></option>{% endfor %}
+      </datalist>
+
+      <div class="d-flex gap-2">
+        <button class="btn btn-primary flex-grow-1" type="submit">Assess this firm</button>
+        <button class="btn btn-outline-secondary" type="button" id="reset-form">Reset</button>
+      </div>
+      <p class="small text-body-secondary mt-2 mb-0">
+        Bounds on every input come from the same field contract the batch pipeline
+        validates against, so a value the browser accepts is a value the model can score.
+      </p>
+    </form>
+  </div>
+
+  <div class="col-xl-7">
+    <div class="alert alert-danger" id="assess-error" hidden></div>
+
+    <div id="assess-placeholder" class="card shadow-sm">
+      <div class="card-body text-body-secondary">
+        Fill the form and press <strong>Assess this firm</strong>. You will get the
+        lend/decline verdict, the sanctioned limit and terms, the six pillar scores
+        behind them, and the reason codes that explain each one.
+      </div>
+    </div>
+
+    <div id="assess-result" hidden>
+      {# ---- verdict ---------------------------------------------------- #}
+      <div class="card shadow-sm mb-3">
+        <div class="card-header bg-body d-flex justify-content-between align-items-center">
+          <strong>Decision</strong>
+          <span class="small text-body-secondary" id="result-id"></span>
+        </div>
+        <div class="card-body">
+          <div id="result-verdict"></div>
+          <div class="row row-cols-2 row-cols-md-4 g-3" id="result-offer"></div>
+          <div id="result-reasons" class="mt-3"></div>
+          <details class="small mt-3" id="result-basis-wrap" hidden>
+            <summary class="text-body-secondary">How this limit was sized</summary>
+            <div class="table-scroll mt-2">
+              <table class="table table-sm mb-0"><tbody id="result-basis"></tbody></table>
+            </div>
+            <div id="result-notes" class="text-body-secondary mt-2"></div>
+          </details>
+        </div>
+      </div>
+
+      {# ---- pillars ----------------------------------------------------- #}
+      <div class="card shadow-sm mb-3">
+        <div class="card-header bg-body">
+          <strong>Why — the six pillars</strong>
+          <span class="text-body-secondary small">
+            — baseline plus drivers, adding up to the score
+          </span>
+        </div>
+        <div class="card-body">
+          <div class="chart-box mb-3"><canvas id="assessPillars"></canvas></div>
+          <div class="table-scroll">
+            <table class="table table-sm align-middle mb-0">
+              <thead>
+                <tr><th>Pillar</th><th class="text-end">Score</th><th class="text-end">Weight</th>
+                    <th class="text-end">Points</th></tr>
+              </thead>
+              <tbody id="result-pillars"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      {# ---- reason codes ------------------------------------------------ #}
+      <div class="row g-3 mb-3">
+        <div class="col-lg-6">
+          <div class="card shadow-sm h-100">
+            <div class="card-header bg-body"><strong>What is working</strong></div>
+            <ul class="list-group list-group-flush" id="result-strengths"></ul>
+          </div>
+        </div>
+        <div class="col-lg-6">
+          <div class="card shadow-sm h-100">
+            <div class="card-header bg-body"><strong>What is holding this firm back</strong></div>
+            <ul class="list-group list-group-flush" id="result-weaknesses"></ul>
+          </div>
+        </div>
+      </div>
+
+      {# ---- risk flags and provenance ----------------------------------- #}
+      <div class="card shadow-sm mb-3">
+        <div class="card-header bg-body"><strong>Risk flags</strong></div>
+        <ul class="list-group list-group-flush" id="result-flags"></ul>
+      </div>
+
+      <div class="card shadow-sm">
+        <div class="card-header bg-body"><strong>Provenance</strong></div>
+        <div class="card-body">
+          <div class="row row-cols-2 row-cols-lg-4 g-3 small" id="result-provenance"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script type="module" src="{{ asset(request, '/js/assess.js') }}"></script>
+{% endblock %}

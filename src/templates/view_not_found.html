@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}MSME not found{% endblock %}
+{% block body %}
+<div class="card shadow-sm">
+  <div class="card-body text-center py-5">
+    <div class="fs-1 mb-2" aria-hidden="true">🔍</div>
+    <h1 class="h4">No MSME with ID <code>{{ msme_id }}</code></h1>
+    <p class="text-body-secondary">
+      Check the identifier, or browse the scored portfolio.
+    </p>
+    <a class="btn btn-primary" href="/healthcards">Browse health cards</a>
+  </div>
+</div>
+{% endblock %}

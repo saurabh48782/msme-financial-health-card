@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block title %}Anomalies · MSME Health Card{% endblock %}
+
+{% block header %}
+<h1 class="h4 mb-1">Anomaly queue</h1>
+<p class="text-body-secondary small">
+  Firms tripping a deterministic consistency rule, worst severity first. Every row
+  names the invariant that broke and the number that broke it, so a reviewer can act
+  on it. Only <code>critical</code> flags decline a firm, and they are named in the
+  decision.
+</p>
+{% endblock %}
+
+{% block body %}
+{% if flag_mix %}
+<div class="card shadow-sm mb-3">
+  <div class="card-header bg-body"><strong>Rule trigger frequency across the book</strong></div>
+  <div class="card-body">
+    <div class="row row-cols-1 row-cols-md-2 row-cols-xl-4 g-2">
+      {% for bucket in flag_mix %}
+      <div class="col">
+        <div class="border rounded p-2 h-100">
+          <div class="small fw-semibold">{{ bucket.label.replace('_', ' ') }}</div>
+          <div class="text-body-secondary small">
+            {{ '{:,}'.format(bucket.count) }} firms · {{ bucket.share | percent(2) }}
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<div class="card shadow-sm">
+  <div class="card-header bg-body d-flex justify-content-between">
+    <strong>Queue</strong>
+    <span class="text-body-secondary small">{{ rows | length }} firms, most severe first</span>
+  </div>
+  <div class="table-scroll">
+    <table class="table table-hover table-sm align-middle mb-0">
+      <thead>
+        <tr><th>MSME</th><th>Severity</th>
+            <th class="text-end">Flags</th><th class="text-end">FHS</th>
+            <th>Risk</th><th>Decision</th><th>Segment</th></tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        {% set rid = row.get(id_column) or row.get('msme_id') %}
+        <tr>
+          <td><a href="/healthcard/{{ rid }}" class="fw-semibold text-decoration-none">{{ rid }}</a></td>
+          <td>{% if row.get('max_severity') %}{{ m.severity_badge(row['max_severity']) }}{% else %}—{% endif %}</td>
+          <td class="text-end">{{ row.get('flag_count', 0) }}</td>
+          <td class="text-end">{{ row.get('financial_health_score') | number }}</td>
+          <td>{{ m.band_badge(row.get('risk_band', '')) }}</td>
+          <td>
+            {% if row.get('eligible') %}<span class="badge text-bg-success">Eligible</span>
+            {% else %}<span class="badge text-bg-secondary">Declined</span>{% endif %}
+          </td>
+          <td class="small">{{ row.get('Customer_Segment') or '—' }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="8" class="text-center text-body-secondary py-4">No anomalies flagged.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

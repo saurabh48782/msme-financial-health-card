@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block title %}MSME Financial Health Card{% endblock %}
+
+{% block header %}
+<div class="row align-items-end mb-4">
+  <div class="col-lg-8">
+    <h1 class="h3 mb-1">MSME Financial Health Card</h1>
+    <p class="text-body-secondary mb-0">
+      Explainable credit scoring for New-to-Credit and New-to-Bank MSMEs, built entirely
+      from consent-based GST, UPI, bank, EPFO and invoice data — no bureau score, no
+      audited financials, no collateral record.
+    </p>
+  </div>
+</div>
+{% endblock %}
+
+{% block body %}
+<div class="row row-cols-2 row-cols-lg-5 stat-grid mb-4">
+  {{ m.stat('Firms scored', '{:,}'.format(summary.firms)) }}
+  {{ m.stat('Approval rate', summary.approval_rate | percent) }}
+  {{ m.stat('Mean health score', summary.mean_health_score | number) }}
+  {{ m.stat('Credit sanctioned', summary.total_sanctioned_inr | rupees) }}
+  {{ m.stat('Thin-file share', summary.thin_file_share | percent,
+            'no formal credit history') }}
+</div>
+
+{% if summary.segment_lift %}
+<div class="card shadow-sm mb-4">
+  <div class="card-header bg-body">
+    <strong>The inclusion result</strong>
+    <span class="text-body-secondary small">
+      — approval rates by customer segment, from alternative data alone
+    </span>
+  </div>
+  <div class="card-body">
+    <div class="table-scroll">
+      <table class="table table-sm align-middle mb-0">
+        <thead>
+          <tr>
+            <th>Segment</th><th class="text-end">Firms</th>
+            <th class="text-end">Approval rate</th><th class="text-end">Mean FHS</th>
+            <th class="text-end">Mean PD</th><th class="text-end">Median limit</th>
+            <th class="text-end">Thin file</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for lift in summary.segment_lift %}
+          <tr>
+            <td class="fw-semibold">{{ lift.segment }}</td>
+            <td class="text-end">{{ '{:,}'.format(lift.firms) }}</td>
+            <td class="text-end">{{ lift.approval_rate | percent }}</td>
+            <td class="text-end">{{ lift.mean_health_score | number }}</td>
+            <td class="text-end">{{ lift.mean_probability_of_default | percent(2) }}</td>
+            <td class="text-end">{{ lift.median_credit_limit_inr | rupees }}</td>
+            <td class="text-end">{{ lift.thin_file_share | percent(0) }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <p class="small text-body-secondary mt-3 mb-0">
+      Approval rates sit within a few points of each other across segments. A firm with no
+      credit history is not penalised for the absence of one — where a repayment record is
+      missing, its rubric weight is redistributed across the evidence that does exist rather
+      than imputed.
+    </p>
+  </div>
+</div>
+{% endif %}
+
+<div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3">
+  {% set cards = [
+    ('/portfolio', '📈', 'Portfolio', 'Score distribution, risk mix, approval lift by segment, industry and location cuts.'),
+    ('/healthcards', '🗂️', 'Health Cards', 'Every scored MSME, filterable by grade, risk band and segment.'),
+    ('/search', '🔎', 'Search', 'Find a firm by ID, or filter by industry, location and score.'),
+    ('/assess', '🧮', 'Assess a firm', 'Enter a firm\u2019s GST, UPI, bank and payroll evidence and get the lend/decline decision, the limit and the pillar reasoning behind it.'),
+    ('/healthcard/MSME0000001', '🪪', 'Sample card', 'A complete card: six pillars, reason codes, SHAP drivers and the credit offer.'),
+    ('/simulator', '🎛️', 'What-if simulator', 'Move a lever, re-score, and see the limit and rate move with it.'),
+    ('/anomalies', '🚩', 'Anomaly queue', 'Firms tripping consistency rules or flagged as statistical outliers.'),
+    ('/metrics', '📐', 'Model metrics', 'Holdout performance, PD calibration and fairness slices.'),
+    ('/docs', '🔌', 'API documentation', 'OpenAPI reference for the scoring, explanation, credit and portfolio endpoints.'),
+  ] %}
+  {% for href, icon, title, blurb in cards %}
+  <div class="col">
+    <a class="card h-100 shadow-sm text-decoration-none text-body" href="{{ href }}">
+      <div class="card-body">
+        <div class="fs-3 mb-1" aria-hidden="true">{{ icon }}</div>
+        <h2 class="h6 fw-semibold mb-1">{{ title }}</h2>
+        <p class="small text-body-secondary mb-0">{{ blurb }}</p>
+      </div>
+    </a>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

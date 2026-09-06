@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block title %}Search · MSME Health Card{% endblock %}
+
+{% block header %}<h1 class="h4 mb-3">Search</h1>{% endblock %}
+
+{% block body %}
+<form class="card shadow-sm mb-3" method="get" action="/search">
+  <div class="card-body">
+    <div class="row g-2 align-items-end">
+      <div class="col-12 col-md-4">
+        <label class="form-label small mb-1" for="msme_id">MSME ID (jumps straight to the card)</label>
+        <input class="form-control form-control-sm" id="msme_id" name="msme_id"
+               placeholder="MSME0000001" autocomplete="off">
+      </div>
+      <div class="col-6 col-md-2">
+        <label class="form-label small mb-1" for="customer_segment">Segment</label>
+        <select class="form-select form-select-sm" id="customer_segment" name="customer_segment">
+          <option value="">Any</option>
+          {% for s in segments %}
+            <option value="{{ s }}" {% if filters.get('customer_segment') == s %}selected{% endif %}>{{ s }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-6 col-md-2">
+        <label class="form-label small mb-1" for="industry">Industry</label>
+        <select class="form-select form-select-sm" id="industry" name="industry">
+          <option value="">Any</option>
+          {% for i in industries %}
+            <option value="{{ i }}" {% if filters.get('industry') == i %}selected{% endif %}>{{ i }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-6 col-md-2">
+        <label class="form-label small mb-1" for="location_category">Location</label>
+        <select class="form-select form-select-sm" id="location_category" name="location_category">
+          <option value="">Any</option>
+          {% for l in locations %}
+            <option value="{{ l }}" {% if filters.get('location_category') == l %}selected{% endif %}>{{ l }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-6 col-md-2 d-flex gap-2">
+        <button class="btn btn-primary btn-sm flex-grow-1" type="submit">Search</button>
+        <a class="btn btn-outline-secondary btn-sm" href="/search">Reset</a>
+      </div>
+    </div>
+  </div>
+</form>
+
+<div class="card shadow-sm">
+  <div class="card-header bg-body d-flex justify-content-between">
+    <strong>Results</strong>
+    <span class="text-body-secondary small">{{ '{:,}'.format(result.total) }} firms</span>
+  </div>
+  <div class="table-scroll">
+    <table class="table table-hover table-sm align-middle mb-0">
+      <thead>
+        <tr><th>MSME</th><th>Segment</th><th>Industry</th><th>Location</th>
+            <th class="text-end">FHS</th><th>Grade</th><th>Risk</th><th class="text-end">Limit</th></tr>
+      </thead>
+      <tbody>
+        {% for item in result.items %}
+        <tr>
+          <td><a href="/healthcard/{{ item.msme_id }}" class="fw-semibold text-decoration-none">{{ item.msme_id }}</a></td>
+          <td class="small">{{ item.customer_segment or '—' }} {{ m.thin_file_badge(item.thin_file) }}</td>
+          <td class="small">{{ item.industry or '—' }}</td>
+          <td class="small">{{ item.location_category or '—' }}</td>
+          <td class="text-end fw-semibold">{{ item.financial_health_score | number }}</td>
+          <td>{{ m.grade_badge(item.grade) }}</td>
+          <td>{{ m.band_badge(item.risk_band) }}</td>
+          <td class="text-end">{{ item.credit_limit_inr | rupees }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="8" class="text-center text-body-secondary py-4">No firms match these filters.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block title %}Portfolio · MSME Health Card{% endblock %}
+
+{% block header %}
+<h1 class="h4 mb-3">Portfolio</h1>
+{% endblock %}
+
+{% block body %}
+{% if summary.firms == 0 %}
+  <div class="alert alert-warning">
+    No scored firms yet. Run <code>python -m src.model.batch_inference</code> to score the portfolio.
+  </div>
+{% else %}
+<div class="row row-cols-2 row-cols-lg-5 stat-grid mb-4">
+  {{ m.stat('Firms', '{:,}'.format(summary.firms)) }}
+  {{ m.stat('Approval rate', summary.approval_rate | percent) }}
+  {{ m.stat('Median FHS', summary.median_health_score | number) }}
+  {{ m.stat('Mean PD', summary.mean_probability_of_default | percent(2)) }}
+  {{ m.stat('Sanctioned', summary.total_sanctioned_inr | rupees) }}
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-lg-8">
+    <div class="card shadow-sm h-100">
+      <div class="card-header bg-body"><strong>Financial Health Score distribution</strong></div>
+      <div class="card-body"><div class="chart-box"><canvas id="fhsHistogram"></canvas></div></div>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card shadow-sm h-100">
+      <div class="card-header bg-body"><strong>Risk band mix</strong></div>
+      <div class="card-body"><div class="chart-box"><canvas id="bandMix"></canvas></div></div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-lg-6">
+    <div class="card shadow-sm h-100">
+      <div class="card-header bg-body">
+        <strong>Approval rate by segment</strong>
+        <span class="text-body-secondary small">— the inclusion claim</span>
+      </div>
+      <div class="card-body"><div class="chart-box"><canvas id="segmentLift"></canvas></div></div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card shadow-sm h-100">
+      <div class="card-header bg-body"><strong>Grade mix</strong></div>
+      <div class="card-body"><div class="chart-box"><canvas id="gradeMix"></canvas></div></div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-6">
+    <div class="card shadow-sm h-100">
+      <div class="card-header bg-body"><strong>Industry mix</strong></div>
+      <div class="card-body"><div class="chart-box-tall"><canvas id="industryMix"></canvas></div></div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card shadow-sm h-100">
+      <div class="card-header bg-body"><strong>Decline reasons</strong></div>
+      <div class="card-body">
+        {% if summary.decline_reason_mix %}
+        <div class="table-scroll">
+          <table class="table table-sm mb-0">
+            <thead><tr><th>Reason</th><th class="text-end">Firms</th><th class="text-end">Share of declines</th></tr></thead>
+            <tbody>
+              {% for bucket in summary.decline_reason_mix %}
+              <tr>
+                <td><code>{{ bucket.label }}</code></td>
+                <td class="text-end">{{ '{:,}'.format(bucket.count) }}</td>
+                <td class="text-end">{{ bucket.share | percent }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <p class="small text-body-secondary mt-3 mb-0">
+          Every decline carries a machine-readable reason code. No firm is declined
+          without one.
+        </p>
+        {% else %}
+          <p class="text-body-secondary mb-0">No declines recorded.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card shadow-sm mt-3">
+  <div class="card-header bg-body"><strong>Location mix</strong></div>
+  <div class="card-body">
+    <div class="table-scroll">
+      <table class="table table-sm align-middle mb-0">
+        <thead><tr><th>Location</th><th class="text-end">Firms</th><th style="width:50%">Share</th></tr></thead>
+        <tbody>
+          {% for bucket in summary.location_mix %}
+          <tr>
+            <td>{{ bucket.label }}</td>
+            <td class="text-end">{{ '{:,}'.format(bucket.count) }}</td>
+            <td>
+              <div class="progress" role="progressbar" aria-valuenow="{{ (bucket.share*100) | round(1) }}"
+                   aria-valuemin="0" aria-valuemax="100" style="height:.6rem">
+                <div class="progress-bar" style="width: {{ (bucket.share*100) | round(1) }}%"></div>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script id="portfolio-data" type="application/json">{{ chart_data | safe }}</script>
+<script type="module" src="{{ asset(request, '/js/portfolio.js') }}"></script>
+{% endblock %}

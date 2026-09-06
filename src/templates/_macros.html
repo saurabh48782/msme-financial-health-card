@@ -1,0 +1,33 @@
+{# Reusable fragments. Kept in one file so a badge looks the same on every page. #}
+
+{% macro grade_badge(grade, label=None) %}
+  <span class="badge text-bg-{{ grade | grade_colour }}">{{ grade }}{% if label %} · {{ label }}{% endif %}</span>
+{% endmacro %}
+
+{% macro band_badge(band) %}
+  <span class="badge text-bg-{{ band | band_colour }}">{{ band }} risk</span>
+{% endmacro %}
+
+{% macro severity_badge(severity) %}
+  <span class="badge text-bg-{{ severity | severity_colour }}">{{ severity }}</span>
+{% endmacro %}
+
+{% macro thin_file_badge(thin) %}
+  {% if thin %}
+    <span class="badge text-bg-info" title="No formal credit history — scored on alternative data alone">
+      thin file
+    </span>
+  {% endif %}
+{% endmacro %}
+
+{% macro stat(label, value, sub=None, tone='body') %}
+  <div class="col">
+    <div class="card h-100 shadow-sm">
+      <div class="card-body">
+        <div class="text-body-secondary text-uppercase small fw-semibold">{{ label }}</div>
+        <div class="fs-3 fw-semibold text-{{ tone }}">{{ value }}</div>
+        {% if sub %}<div class="small text-body-secondary">{{ sub }}</div>{% endif %}
+      </div>
+    </div>
+  </div>
+{% endmacro %}
