@@ -1,0 +1,93 @@
+name: healthcard
+
+x-app-env: &app-env
+  MLFLOW_TRACKING_URI: ${MLFLOW_TRACKING_URI:-}
+  LOG_TARGET: stdout
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+  HEALTHCARD_API_KEY: ${HEALTHCARD_API_KEY:-}
+  CORS_ALLOW_ORIGINS: ${CORS_ALLOW_ORIGINS:-}
+
+services:
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v3.6.0
+    profiles: [dev, all]
+    command: >
+      mlflow server --host 0.0.0.0 --port 5000
+      --backend-store-uri sqlite:////mlflow/mlflow.db
+      --default-artifact-root /mlflow/artifacts
+    ports:
+      - "127.0.0.1:5000:5000"
+    volumes:
+      - mlflow_data:/mlflow
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request;urllib.request.urlopen('http://localhost:5000/health')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      target: api
+    profiles: [dev, all, integration_test]
+    environment:
+      <<: *app-env
+      ALLOW_MISSING_MODEL: "1"
+      WORKERS: ${WORKERS:-2}
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data:ro
+      - model_artifact:/app/model_artifact
+    healthcheck:
+      # Readiness, not liveness: the integration tests must not start against an
+      # API whose model is still loading.
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8000/readiness || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+    restart: unless-stopped
+
+  trainer:
+    build:
+      context: .
+      target: trainer
+    profiles: [train]
+    environment: *app-env
+    volumes:
+      - ./data:/app/data
+      - ./mlruns:/app/mlruns
+      - model_artifact:/app/model_artifact
+
+  unit-test:
+    build:
+      context: .
+      target: unit_test
+    profiles: [unit_test, all]
+    environment: *app-env
+
+  integration-test:
+    build:
+      context: .
+      target: integration_test
+    profiles: [integration_test, all]
+    environment:
+      <<: *app-env
+      API_URL: http://api:8000
+    depends_on:
+      api:
+        condition: service_healthy
+
+  precommit-check:
+    build:
+      context: .
+      target: precommit_check
+    profiles: [precommit_check, all]
+    environment: *app-env
+
+volumes:
+  mlflow_data:
+  model_artifact:

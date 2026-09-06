@@ -1,0 +1,65 @@
+# Optional pipeline definition, so `dvc repro` reruns only what changed.
+# The stages are the same entrypoints scripts/train.sh calls in order.
+stages:
+  prepare:
+    cmd: python -m src.data.data_orchestration
+    deps:
+      - data/raw/msme_synthetic_50k.csv
+      - src/data
+    params:
+      - params.yaml:
+          - preprocessing
+          - schema
+    outs:
+      - data/processed/features.csv
+      - data/processed/winsor_limits.json
+
+  calibrate:
+    cmd: python -m src.scoring.pillar_calibration
+    deps:
+      - data/processed/features.csv
+      - src/scoring/pillar_calibration.py
+      - src/scoring/pillars.py
+    params:
+      - params.yaml:
+          - pillars
+    outs:
+      - data/artifacts/pillar_calibration.json
+
+  train:
+    cmd: python -m src.model.model_orchestration
+    deps:
+      - data/processed/features.csv
+      - src/model
+      - src/scoring
+    params:
+      - params.yaml:
+          - model_params
+          - pillars
+    outs:
+      - model_artifact/scoring_bundle.joblib
+      - model_artifact/training_report.json
+
+  score:
+    cmd: python -m src.model.batch_inference
+    deps:
+      - model_artifact/scoring_bundle.joblib
+      - data/raw/msme_synthetic_50k.csv
+      - src/scoring/scoring_orchestration.py
+    params:
+      - params.yaml:
+          - policy
+    outs:
+      - data/processed/portfolio_scores.csv
+
+  evaluate:
+    cmd: python -m src.evaluation report
+    deps:
+      - model_artifact/scoring_bundle.joblib
+      - src/evaluation
+    params:
+      - params.yaml:
+          - evaluation
+    outs:
+      - data/eval/reports/latest.json
+      - data/eval/reports/latest.md

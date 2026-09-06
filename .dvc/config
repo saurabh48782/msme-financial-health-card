@@ -1,0 +1,6 @@
+[core]
+    autostage = true
+# No remote is configured here. Add one per environment rather than committing a
+# bucket name that only works inside one AWS account:
+#   dvc remote add -d origin s3://<bucket>/healthcard
+#   dvc remote modify origin region ap-south-1
