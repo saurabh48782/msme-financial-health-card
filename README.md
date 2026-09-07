@@ -59,6 +59,12 @@ version that produced it.
 > observed default. See [docs/MODEL_CARD.md](docs/MODEL_CARD.md) for what that means and
 > what retraining on real performance would require.
 
+![A complete Health Card: score gauge, credit recommendation, the six pillar radar, exact per-pillar contributions, and the reason codes on both sides](docs/images/healthcard.png)
+
+*One firm's Health Card. The pillar contributions add up to the score exactly, and every
+reason code names the driver and the points it moved. Served at
+`/healthcard/{msme_id}`; nine such views ship with the API ([section 5](#5-local-development)).*
+
 ## Table of Contents
 
 - [MSME Financial Health Card](#msme-financial-health-card)
@@ -116,6 +122,12 @@ The top PD driver is `GST_Filing_Timeliness_Pct` at 34.5% of gain, and no bureau
 variable appears anywhere in the top ten. Thin-file firms are not penalised for the
 absence of a credit record: where a repayment driver is missing, its rubric weight is
 redistributed across evidence that exists rather than imputed.
+
+![Portfolio dashboard: headline stats, FHS distribution, risk-band mix, approval rate by segment, grade mix, industry mix and decline reasons](docs/images/portfolio.png)
+
+*The same numbers, browsable: `/portfolio` over all 50,000 scored firms. The
+approval-rate-by-segment panel is the inclusion claim, and every decline carries a
+machine-readable reason code.*
 
 ## 3. Installation
 
@@ -214,8 +226,11 @@ No compose stack and no database to bring up. The store is a read-only view over
 batch-scored portfolio CSV and an individual card is scored on demand, so once the
 pipelines have run all 50,000 firms are drillable.
 
+![Home page: five headline stats, the inclusion result table of approval rate by segment, and cards linking to each of the nine views](docs/images/home.png)
+
 **The nine views.** Server-rendered Jinja2 + Bootstrap 5, Chart.js, vanilla ES modules.
-No npm, no bundler, no SPA.
+No npm, no bundler, no SPA. `/` is the way in: the headline portfolio stats, the
+segment approval table that is the inclusion claim, and a card per view.
 
 | Page | What it shows |
 |---|---|
@@ -230,6 +245,13 @@ No npm, no bundler, no SPA.
 | [`/search`](http://localhost:8000/search) | Filter by segment/industry/location; an ID lookup redirects to the card |
 
 Plus [`/docs`](http://localhost:8000/docs) for the OpenAPI reference.
+
+![What-if simulator: eight levers on the left, before/after score, PD, limit, tenure and rate on the right, with a per-pillar before/after chart](docs/images/simulator.png)
+
+*`/simulator` is the one that turns a decline into advice: move a lever the firm actually
+controls, re-score, and watch the band, limit and rate move with it. Here raising GST
+timeliness and payment punctuality takes a High-risk firm to Medium and unlocks a
+₹11.39 L limit.*
 
 **Everyday commands**
 
