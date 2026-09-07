@@ -159,7 +159,7 @@ docker compose --profile all up --build    # everything, including the test targ
 
 | Property | Value |
 |---|---|
-| Source | `data/raw/msme_synthetic_50k.csv`, synthetic |
+| Source | `data/raw/msme_synthetic_50k.csv` (DVC-tracked, not in git) |
 | Shape | 50,000 rows × 45 columns = 1 identifier + 33 inputs + 11 supervision targets |
 | Segment mix | NTC 21,068 · NTB 14,967 · Existing-to-Credit 13,965 |
 | Structural nulls | `EMI_On_Time_Rate_Pct` is null for all 32,556 firms with no existing loan |
@@ -328,51 +328,24 @@ uv run python -m src.evaluation report      # full JSON + markdown, with gate pa
 uv run pytest -m eval                       # the regression gate (excluded by default)
 ```
 
-**Portfolio metrics.** Model `18`, all 50,000 firms. All configured thresholds met.
+Every configured threshold is met on the current run (model `18`, all 50,000 firms):
+the full metric, pillar-fit and fairness tables live in
+[docs/MODEL_CARD.md](docs/MODEL_CARD.md) rather than being restated here.
 
-| Metric | Value | Gate |
-|---|---|---|
-| Financial Health Score adj. R² / MAE | 0.8148 / 2.150 points | MAE ≤ 2.5 |
-| PD adj. R² / MAE | 0.9554 / 0.01424 | MAE ≤ 0.025 |
-| PD expected calibration error | 0.00104 | n/a |
-| Eligibility ROC-AUC / KS | 0.9886 / 0.8831 | AUC ≥ 0.95 |
-| Risk-band / eligibility agreement | 0.8645 / 0.9329 | n/a |
-| Credit limit MAPE | 0.1189 | ≤ 0.15 |
+Two things are worth knowing before reading them. Pillar R² is *adjusted*, because
+plain R² rises with predictor count whether or not a driver carries signal, so a
+rubric must not clear its gate by being wider than its neighbours. And fairness
+deviation is measured on model **error**, not on outcome rates: cohorts may
+legitimately differ in creditworthiness, but the model's error must not. The largest
+PD-error deviation across every slice (segment, location, industry) is 0.0930 points
+against a gate of 3.0, and thin-file share by segment is NTC 100% · NTB 76.8% ·
+ETC 0%, so the flat approval spread is not an artefact of three cohorts that happen
+to look alike.
 
-**Pillar rubric fit.** Every R² is *adjusted*, because plain R² rises with predictor count
-whether or not a driver carries signal, so a rubric must not clear the gate by being
-wider than its neighbours.
-
-| Pillar | Adj. R² | Drivers | MAE | Gate |
-|---|---|---|---|---|
-| Compliance | 0.9941 | 4 | 0.370 | ≥ 0.75 |
-| Cash Flow | 0.9903 | 5 | 0.506 | ≥ 0.75 |
-| Business Growth | 0.9423 | 3 | 2.274 | ≥ 0.75 |
-| Payment Behaviour | 0.9418 | 4 | 1.065 | ≥ 0.75 |
-| Revenue Consistency | 0.8986 | 4 | 2.035 | ≥ 0.75 |
-| Business Stability | 0.8755 | 5 | 2.216 | ≥ 0.75 |
-
-Payment Behaviour fits at 0.997 on fully observed rows but 0.942 across the whole
-portfolio. The gap is the structural null, and the lower number is the one the portfolio
-sees.
-
-**Fairness.** Deviation is measured on model *error*, not on outcome rates. Cohorts may
-legitimately differ in creditworthiness, but the model's error must not.
-
-| Segment | Firms | PD MAE | PD bias | Approval (ours) | Approval (dataset) |
-|---|---|---|---|---|---|
-| Existing-to-Credit | 13,965 | 0.01331 | −0.00004 | 0.741 | 0.776 |
-| NTB | 14,967 | 0.01439 | −0.00010 | 0.724 | 0.737 |
-| NTC | 21,068 | 0.01476 | −0.00007 | 0.717 | 0.726 |
-
-Largest PD-error deviation across all slices (segment, location, industry): **0.0930
-points** against a gate of 3.0. Approval rates span 2.4 points, narrower than the
-reference decisions' own 5.0. Thin-file share by segment is NTC 100% · NTB 76.8% ·
-ETC 0%, so that is not an artefact of a cohort that happens to look the same.
-
-Read the numbers alongside [docs/MODEL_CARD.md](docs/MODEL_CARD.md): the data is
-synthetic, and the eligibility agreement of 93.3% partly reflects a *deliberate*
-disagreement where the DSCR cap declines firms the reference decisions approve.
+The one deliberate disagreement with the reference decisions: eligibility agreement
+is 93.3% rather than near-perfect because the DSCR headroom cap declines firms whose
+free cashflow cannot service the loan, and the reference decisions ignore
+serviceability.
 
 ## 9. Testing
 
@@ -472,24 +445,21 @@ docker compose --profile precommit_check up --build
 
 ## 12. Limitations
 
-Full treatment in [docs/MODEL_CARD.md](docs/MODEL_CARD.md).
+The four that change how you should read the numbers above. Full treatment, with the
+evidence behind each, in [docs/MODEL_CARD.md](docs/MODEL_CARD.md).
 
-1. **Synthetic data caps the score.** The generator's own pillar formula explains only
-   ~83% of its health score, so an FHS MAE near 2.1 points is close to the achievable
-   ceiling rather than evidence of a great model.
-2. **PD is a generated label.** Retraining on observed default is mandatory before real
-   use, and the rubric weights should be expected to move when it happens.
-3. **No time series.** Monthly aggregates only, so the card shows no trend charts rather
-   than generating a history the data does not contain.
-4. **Knock-out thresholds are unvalidated policy.** They sit at the observed floor of the
-   eligible population, which is a fitting choice as much as a policy one.
-5. **Limit sizing diverges from the reference on 1.7% of firms**, because the DSCR
-   headroom cap enforces serviceability and the reference decisions do not.
-6. **The 3% rubric weight floor is judgement, not evidence**, the one place where a
-   belief overrides the fit.
-7. **Anomaly detection is rules-only.** Shapes nobody wrote a rule for are not caught.
-8. **Not a fraud engine, and not a bureau substitute.** The anomaly layer orders a review
-   queue; it does not adjudicate.
+1. **The generated label caps the score.** The generator's own pillar formula explains
+   only ~83% of its health score, so an FHS MAE near 2.1 points sits close to the
+   achievable ceiling rather than proving a great model. Retraining on observed default
+   is mandatory before real use, and the rubric weights should be expected to move.
+2. **No time series.** Monthly aggregates only, so the card shows no trend charts rather
+   than inventing a history the data does not contain.
+3. **Two pieces of the policy are judgement, not evidence.** The knock-out thresholds sit
+   at the observed floor of the eligible population, and the 3% rubric weight floor keeps
+   drivers a real lender would need but this generator does not use.
+4. **Not a fraud engine, and not a bureau substitute.** Anomaly detection is eight named
+   rules; shapes nobody wrote a rule for are not caught, and the queue is for review, not
+   adjudication.
 
 ## 13. Further Documentation
 

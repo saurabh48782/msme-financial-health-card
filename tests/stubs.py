@@ -22,6 +22,7 @@ from src.schemas.healthcard import (
     HealthCard,
     PillarScore,
 )
+from src.utils.config import load_config
 
 if TYPE_CHECKING:  # pragma: no cover - avoids importing the scoring stack at collection
     from src.scoring.scoring_orchestration import ScoringBundle
@@ -70,12 +71,45 @@ def thin_file_frame(**overrides: Any) -> pd.DataFrame:
     return pd.DataFrame([{**_THIN_FILE_FIRM, **overrides}])
 
 
+_LABEL_NOISE = 6.0
+"""Score points of variance the drivers cannot explain, so the fit is not perfect."""
+
+
+def _pillar_label(frame: pd.DataFrame, pillar_key: str, rng: np.random.Generator) -> pd.Series:
+    """Score one pillar off its own raw driver columns, using the shipped ramps.
+
+    A pillar label has to carry the signal ``calibrate_pillar`` exists to recover.
+    Drawn independently of the drivers it is noise, and non-negative least squares
+    answers noise by zeroing every coefficient - which is a degenerate fit, not a
+    calibration. Drivers the feature pipeline computes are skipped, because this
+    builds a *raw* frame; the raw drivers still hold 78-97% of each pillar's
+    weight, which is signal enough to fit.
+    """
+    spec: dict[str, dict[str, Any]] = load_config()["pillars"][pillar_key]["drivers"]
+    fraction = np.zeros(len(frame))
+    weight_total = 0.0
+    for driver in spec.values():
+        column = str(driver["source"])
+        if column not in frame.columns:
+            continue
+        worst, best = float(driver["worst"]), float(driver["best"])
+        ramp = (pd.to_numeric(frame[column]) - worst) / (best - worst)
+        # A structurally NULL driver sits mid-ramp rather than at an anchor: the
+        # thin-file firm is neither punished nor rewarded for having no loan.
+        weight = float(driver["weight"])
+        fraction += weight * ramp.clip(0.0, 1.0).fillna(0.5).to_numpy()
+        weight_total += weight
+    noisy = 100.0 * fraction / weight_total + rng.normal(0.0, _LABEL_NOISE, len(frame))
+    return pd.Series(noisy, index=frame.index).clip(0.0, 100.0).round(1)
+
+
 def synthetic_raw_frame(rows: int = 200, *, seed: int = 7) -> pd.DataFrame:
     """A dataset-shaped frame, including the structural NULL relationship.
 
-    Used when the DVC-tracked CSV is unavailable (CI). It reproduces the property
-    the tests care about: ``EMI_On_Time_Rate_Pct`` is null exactly where
-    ``Has_Existing_Loan == "No"``.
+    Used when the DVC-tracked CSV is unavailable (CI). It reproduces the two
+    properties the tests care about: ``EMI_On_Time_Rate_Pct`` is null exactly where
+    ``Has_Existing_Loan == "No"``, and every pillar label tracks its own drivers so
+    the rubric calibration has something real to recover.
     """
     rng = np.random.default_rng(seed)
     turnover = rng.uniform(3e5, 5e7, rows)
@@ -121,12 +155,8 @@ def synthetic_raw_frame(rows: int = 200, *, seed: int = 7) -> pd.DataFrame:
         frame[column] = rng.choice(levels, rows)
 
     # Label block, so calibration and evaluation paths have something to fit.
-    frame["Business_Stability_Score"] = rng.uniform(40, 97, rows).round(1)
-    frame["Cashflow_Score"] = rng.uniform(38, 96, rows).round(1)
-    frame["Revenue_Consistency_Score"] = rng.uniform(35, 92, rows).round(1)
-    frame["Payment_Behaviour_Score"] = rng.uniform(52, 100, rows).round(1)
-    frame["Business_Growth_Score"] = rng.uniform(3, 83, rows).round(1)
-    frame["Compliance_Score"] = rng.uniform(52, 100, rows).round(1)
+    for pillar_key, label_column in load_config()["schema"]["pillar_label_map"].items():
+        frame[label_column] = _pillar_label(frame, pillar_key, rng)
     frame["Financial_Health_Score"] = (
         0.272 * frame["Compliance_Score"]
         + 0.238 * frame["Cashflow_Score"]
